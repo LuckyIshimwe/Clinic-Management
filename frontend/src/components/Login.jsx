@@ -4,10 +4,22 @@ import axios from 'axios';
 
 const baseURL = import.meta.env.VITE_API_URL || "http://localhost:2000/api";
 
-
 const StethoscopeIcon = () => (
   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+  </svg>
+);
+
+const EyeIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
   </svg>
 );
 
@@ -40,27 +52,72 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [staffId, setStaffId] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Detect role from Staff ID
+  const detectRoleFromStaffId = (staffId) => {
+    const id = staffId.toLowerCase();
+    if (id.includes('doctor') || id.includes('doc')) return 'doctor';
+    if (id.includes('nurse') || id.includes('nur')) return 'nurse';
+    if (id.includes('pharmacist') || id.includes('pharm')) return 'pharmacist';
+    if (id.includes('receptionist') || id.includes('recep')) return 'receptionist';
+    return null;
+  };
+
+  const handleStaffIdChange = (e) => {
+    const value = e.target.value;
+    setStaffId(value);
+    
+    // Auto-detect and switch role based on Staff ID
+    const detectedRole = detectRoleFromStaffId(value);
+    if (detectedRole) {
+      setActiveTab(detectedRole);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
     try {
+      // Validate that Staff ID matches selected role
+      const detectedRole = detectRoleFromStaffId(staffId);
+      if (detectedRole && detectedRole !== activeTab) {
+        const roleNames = {
+          doctor: 'Doctor',
+          nurse: 'Nurse',
+          pharmacist: 'Pharmacist',
+          receptionist: 'Receptionist'
+        };
+        setError(`This Staff ID appears to be for a ${roleNames[detectedRole]}. Please select the correct role.`);
+        setActiveTab(detectedRole);
+        setIsLoading(false);
+        return;
+      }
+
       const loginData = {
+        staffId,
         email,
-        password,
-        staffId, 
-        requestedRole: activeTab 
+        password
       };
 
       const res = await axios.post(`${baseURL}/user/login`, loginData);
       
-      console.log(res.data.user);
+      const { token, user } = res.data;
       
-      const userRole = res.data.user.role.toLowerCase();
-      const requestedRole = activeTab.toLowerCase();
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      console.log('Login successful:', user);
+      
+      const userRole = user.role.toLowerCase();
 
-   
-      if (userRole !== requestedRole) {
+      // Double-check role matches
+      if (userRole !== activeTab) {
         const roleNames = {
           doctor: 'Doctor',
           nurse: 'Nurse',
@@ -68,45 +125,39 @@ export default function Login() {
           receptionist: 'Receptionist'
         };
 
-        alert(`The Staff ID entered belongs to a ${roleNames[userRole]}. Redirecting you to the ${roleNames[userRole]} portal.`);
-        
-        
+        setError(`This account belongs to a ${roleNames[userRole]}. Please select the correct role.`);
         setActiveTab(userRole);
-        
-        
-        setTimeout(() => {
-          navigate(`/${userRole}`);
-        }, 1000);
-        
-        return; 
+        setIsLoading(false);
+        return;
       }
 
-      
+      // Navigate to correct dashboard
       switch (userRole) {
         case 'doctor':
-          navigate("/doctor");
+          navigate('/doctor');
           break;
         case 'nurse':
-          navigate("/nurse");
+          navigate('/nurse');
           break;
         case 'pharmacist':
-          navigate("/pharmacist");
+          navigate('/pharmacist');
           break;
         case 'receptionist':
-          navigate("/receptionist");
+          navigate('/receptionist');
           break;
         default:
-          navigate("/dashboard");
+          navigate('/dashboard');
       }
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Login failed. Please check your credentials and try again.");
+      console.error('Login error:', err);
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials and try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const goToCreate = () => navigate("/register");
+  const goToCreate = () => navigate('/register');
 
-  
   const roleColors = {
     doctor: {
       bg: 'bg-teal-600',
@@ -149,17 +200,17 @@ export default function Login() {
   const currentColors = roleColors[activeTab];
 
   const roles = [
-    { id: 'doctor', label: 'Doctor', icon: DoctorIcon },
-    { id: 'nurse', label: 'Nurse', icon: NurseIcon },
-    { id: 'pharmacist', label: 'Pharmacist', icon: PharmacistIcon },
-    { id: 'receptionist', label: 'Receptionist', icon: ReceptionistIcon }
+    { id: 'doctor', label: 'Doctor', icon: DoctorIcon, prefix: 'DOC' },
+    { id: 'nurse', label: 'Nurse', icon: NurseIcon, prefix: 'NUR' },
+    { id: 'pharmacist', label: 'Pharmacist', icon: PharmacistIcon, prefix: 'PHARM' },
+    { id: 'receptionist', label: 'Receptionist', icon: ReceptionistIcon, prefix: 'RECEP' }
   ];
 
   return (
     <div className="bg-gray-50 flex items-center justify-center h-screen overflow-hidden font-['Poppins']">
       <div className="flex gap-12 items-center max-w-7xl w-full px-8 h-full py-8">
 
-        
+        {/* Left Side - Role Info */}
         <div className="flex-1 max-w-md flex flex-col justify-center h-full">
           <div className={`flex items-center px-5 py-4 border-2 ${currentColors.borderColor} rounded-2xl gap-4 bg-white shadow-sm mb-8`}>
             <div className={`${currentColors.bg} p-3 rounded-xl`}>
@@ -172,7 +223,6 @@ export default function Login() {
           </div>
 
           <div className="space-y-6">
-           
             <div className="flex items-start gap-4">
               <div className="bg-teal-100 p-2.5 rounded-xl mt-0.5 flex-shrink-0">
                 <DoctorIcon />
@@ -185,7 +235,6 @@ export default function Login() {
               </div>
             </div>
 
-            
             <div className="flex items-start gap-4">
               <div className="bg-green-100 p-2.5 rounded-xl mt-0.5 flex-shrink-0">
                 <NurseIcon />
@@ -198,7 +247,6 @@ export default function Login() {
               </div>
             </div>
 
-           
             <div className="flex items-start gap-4">
               <div className="bg-purple-100 p-2.5 rounded-xl mt-0.5 flex-shrink-0">
                 <PharmacistIcon />
@@ -211,7 +259,6 @@ export default function Login() {
               </div>
             </div>
 
-           
             <div className="flex items-start gap-4">
               <div className="bg-orange-100 p-2.5 rounded-xl mt-0.5 flex-shrink-0">
                 <ReceptionistIcon />
@@ -226,7 +273,7 @@ export default function Login() {
           </div>
         </div>
 
-       
+        {/* Right Side - Login Form */}
         <div className="flex-1 max-w-lg flex items-center h-full">
           <div className="bg-white rounded-3xl shadow-lg p-8 w-full">
             <div className="text-center mb-6">
@@ -244,6 +291,7 @@ export default function Login() {
                   <button
                     key={role.id}
                     onClick={() => setActiveTab(role.id)}
+                    type="button"
                     className={`py-2.5 px-3 rounded-xl font-medium text-xs transition-all flex items-center justify-center gap-2 ${
                       isActive
                         ? `${colors.bg} text-white shadow-md`
@@ -259,8 +307,31 @@ export default function Login() {
               })}
             </div>
 
-          
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-xl text-sm">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label htmlFor="staffId" className="block text-gray-700 text-xs font-medium mb-1.5">
+                  Staff ID
+                </label>
+                <input
+                  id="staffId"
+                  type="text"
+                  value={staffId}
+                  onChange={handleStaffIdChange}
+                  className={`w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 ${currentColors.ring} focus:border-transparent transition-all`}
+                  placeholder={`${roles.find(r => r.id === activeTab)?.prefix}-001`}
+                  required
+                />
+                <p className="text-gray-500 text-xs mt-1">
+                  Role will auto-detect from your Staff ID
+                </p>
+              </div>
+
               <div className="mb-4">
                 <label htmlFor="email" className="block text-gray-700 text-xs font-medium mb-1.5">
                   Email Address
@@ -276,41 +347,37 @@ export default function Login() {
                 />
               </div>
 
-              <div className="mb-4">
-                <label htmlFor="staffId" className="block text-gray-700 text-xs font-medium mb-1.5">
-                  Staff ID
-                </label>
-                <input
-                  id="staffId"
-                  type="text"
-                  value={staffId}
-                  onChange={(e) => setStaffId(e.target.value)}
-                  className={`w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 ${currentColors.ring} focus:border-transparent transition-all`}
-                  placeholder={`${activeTab.toUpperCase()}-001`}
-                  required
-                />
-              </div>
-
               <div className="mb-6">
                 <label htmlFor="password" className="block text-gray-700 text-xs font-medium mb-1.5">
                   Password
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 ${currentColors.ring} focus:border-transparent transition-all`}
-                  placeholder="••••••••"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`w-full px-3 py-2.5 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 ${currentColors.ring} focus:border-transparent transition-all`}
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors focus:outline-none"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
               </div>
 
               <button 
                 type="submit"
-                className={`w-full ${currentColors.bg} ${currentColors.hoverBg} text-white font-semibold py-3 rounded-xl transition-all shadow-md mb-4 text-sm`}
+                disabled={isLoading}
+                className={`w-full ${currentColors.bg} ${currentColors.hoverBg} text-white font-semibold py-3 rounded-xl transition-all shadow-md mb-4 text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                Sign In as {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                {isLoading ? 'Signing in...' : `Sign In as ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
               </button>
             </form>
 
