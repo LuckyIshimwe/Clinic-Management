@@ -5,7 +5,7 @@ import axios from 'axios';
 const baseURL = import.meta.env.VITE_API_URL || "http://localhost:2000/api";
 
 const StethoscopeIcon = () => (
-  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
   </svg>
 );
@@ -23,60 +23,31 @@ const EyeOffIcon = () => (
   </svg>
 );
 
-const DoctorIcon = () => (
+const HeartIcon = () => (
   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
   </svg>
 );
 
-const NurseIcon = () => (
+const ShieldIcon = () => (
   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1 16.93c-3.95-.49-7-3.85-7-7.84V6.3l6-2.25v14.88z"/>
+    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
   </svg>
 );
 
-const PharmacistIcon = () => (
+const ClockIcon = () => (
   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M4 6h16v2H4zm0 5h16v6H4zm16-2H4V7h16v2zm0 9H4v-6h16v6zM8 13h8v2H8z"/>
-  </svg>
-);
-
-const ReceptionistIcon = () => (
-  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+    <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
   </svg>
 );
 
 export default function Login() {
-  const [activeTab, setActiveTab] = useState('doctor');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [staffId, setStaffId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  // Detect role from Staff ID
-  const detectRoleFromStaffId = (staffId) => {
-    const id = staffId.toLowerCase();
-    if (id.includes('doctor') || id.includes('doc')) return 'doctor';
-    if (id.includes('nurse') || id.includes('nur')) return 'nurse';
-    if (id.includes('pharmacist') || id.includes('pharm')) return 'pharmacist';
-    if (id.includes('receptionist') || id.includes('recep')) return 'receptionist';
-    return null;
-  };
-
-  const handleStaffIdChange = (e) => {
-    const value = e.target.value;
-    setStaffId(value);
-    
-    // Auto-detect and switch role based on Staff ID
-    const detectedRole = detectRoleFromStaffId(value);
-    if (detectedRole) {
-      setActiveTab(detectedRole);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -84,23 +55,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Validate that Staff ID matches selected role
-      const detectedRole = detectRoleFromStaffId(staffId);
-      if (detectedRole && detectedRole !== activeTab) {
-        const roleNames = {
-          doctor: 'Doctor',
-          nurse: 'Nurse',
-          pharmacist: 'Pharmacist',
-          receptionist: 'Receptionist'
-        };
-        setError(`This Staff ID appears to be for a ${roleNames[detectedRole]}. Please select the correct role.`);
-        setActiveTab(detectedRole);
-        setIsLoading(false);
-        return;
-      }
-
       const loginData = {
-        staffId,
         email,
         password
       };
@@ -115,23 +70,8 @@ export default function Login() {
       console.log('Login successful:', user);
       
       const userRole = user.role.toLowerCase();
-
-      // Double-check role matches
-      if (userRole !== activeTab) {
-        const roleNames = {
-          doctor: 'Doctor',
-          nurse: 'Nurse',
-          pharmacist: 'Pharmacist',
-          receptionist: 'Receptionist'
-        };
-
-        setError(`This account belongs to a ${roleNames[userRole]}. Please select the correct role.`);
-        setActiveTab(userRole);
-        setIsLoading(false);
-        return;
-      }
-
-      // Navigate to correct dashboard
+      
+      
       switch (userRole) {
         case 'doctor':
           navigate('/doctor');
@@ -158,182 +98,86 @@ export default function Login() {
 
   const goToCreate = () => navigate('/register');
 
-  const roleColors = {
-    doctor: {
-      bg: 'bg-teal-600',
-      hoverBg: 'hover:bg-teal-700',
-      ring: 'focus:ring-teal-600',
-      text: 'text-teal-600',
-      hoverText: 'hover:text-teal-700',
-      lightBg: 'bg-teal-100',
-      borderColor: 'border-teal-200'
-    },
-    nurse: {
-      bg: 'bg-green-600',
-      hoverBg: 'hover:bg-green-700',
-      ring: 'focus:ring-green-600',
-      text: 'text-green-600',
-      hoverText: 'hover:text-green-700',
-      lightBg: 'bg-green-100',
-      borderColor: 'border-green-200'
-    },
-    pharmacist: {
-      bg: 'bg-purple-600',
-      hoverBg: 'hover:bg-purple-700',
-      ring: 'focus:ring-purple-600',
-      text: 'text-purple-600',
-      hoverText: 'hover:text-purple-700',
-      lightBg: 'bg-purple-100',
-      borderColor: 'border-purple-200'
-    },
-    receptionist: {
-      bg: 'bg-orange-500',
-      hoverBg: 'hover:bg-orange-600',
-      ring: 'focus:ring-orange-500',
-      text: 'text-orange-500',
-      hoverText: 'hover:text-orange-600',
-      lightBg: 'bg-orange-100',
-      borderColor: 'border-orange-200'
-    }
-  };
-
-  const currentColors = roleColors[activeTab];
-
-  const roles = [
-    { id: 'doctor', label: 'Doctor', icon: DoctorIcon, prefix: 'DOC' },
-    { id: 'nurse', label: 'Nurse', icon: NurseIcon, prefix: 'NUR' },
-    { id: 'pharmacist', label: 'Pharmacist', icon: PharmacistIcon, prefix: 'PHARM' },
-    { id: 'receptionist', label: 'Receptionist', icon: ReceptionistIcon, prefix: 'RECEP' }
-  ];
-
   return (
-    <div className="bg-gray-50 flex items-center justify-center h-screen overflow-hidden font-['Poppins']">
-      <div className="flex gap-12 items-center max-w-7xl w-full px-8 h-full py-8">
+    <div className="bg-orange-50 flex items-center justify-center min-h-screen overflow-hidden font-['Poppins']">
+      <div className="flex gap-16 items-center max-w-6xl w-full px-8 py-12">
 
-        {/* Left Side - Role Info */}
-        <div className="flex-1 max-w-md flex flex-col justify-center h-full">
-          <div className={`flex items-center px-5 py-4 border-2 ${currentColors.borderColor} rounded-2xl gap-4 bg-white shadow-sm mb-8`}>
-            <div className={`${currentColors.bg} p-3 rounded-xl`}>
-              <StethoscopeIcon />
+       
+        <div className="flex-1 max-w-md flex flex-col justify-center">
+          <div className="mb-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="bg-orange-500 p-4 rounded-2xl shadow-lg">
+                <StethoscopeIcon />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-800">Welcome Back</h1>
+                <p className="text-orange-600 font-medium">to Clinic Management System</p>
+              </div>
             </div>
-            <div>
-              <h2 className={`${currentColors.text} font-semibold text-base`}>Clinic Management System</h2>
-              <p className="text-gray-600 text-xs">Professional Healthcare Portal</p>
-            </div>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              Your comprehensive healthcare management platform. Access patient records, appointments, and clinical tools all in one place.
+            </p>
           </div>
 
-          <div className="space-y-6">
-            <div className="flex items-start gap-4">
-              <div className="bg-teal-100 p-2.5 rounded-xl mt-0.5 flex-shrink-0">
-                <DoctorIcon />
+          <div className="space-y-5">
+            <div className="flex items-start gap-4 bg-white/60 backdrop-blur-sm p-4 rounded-xl border border-orange-100">
+              <div className="bg-orange-100 p-2.5 rounded-lg mt-0.5 flex-shrink-0">
+                <HeartIcon />
               </div>
               <div>
-                <h3 className="text-gray-900 font-semibold text-sm mb-1">For Doctors</h3>
-                <p className="text-gray-500 text-xs leading-relaxed">
-                  Manage patient appointments, medical records, and prescriptions efficiently
+                <h3 className="text-gray-900 font-semibold text-sm mb-1">Patient-Centered Care</h3>
+                <p className="text-gray-600 text-xs leading-relaxed">
+                  Streamlined workflows for better patient outcomes and experiences
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4">
-              <div className="bg-green-100 p-2.5 rounded-xl mt-0.5 flex-shrink-0">
-                <NurseIcon />
+            <div className="flex items-start gap-4 bg-white/60 backdrop-blur-sm p-4 rounded-xl border border-green-100">
+              <div className="bg-green-100 p-2.5 rounded-lg mt-0.5 flex-shrink-0">
+                <ShieldIcon />
               </div>
               <div>
-                <h3 className="text-gray-900 font-semibold text-sm mb-1">For Nurses</h3>
-                <p className="text-gray-500 text-xs leading-relaxed">
-                  Track patient vitals, assist in treatments, and coordinate care activities
+                <h3 className="text-gray-900 font-semibold text-sm mb-1">Secure & Compliant</h3>
+                <p className="text-gray-600 text-xs leading-relaxed">
+                  HIPAA-compliant platform with enterprise-grade security
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4">
-              <div className="bg-purple-100 p-2.5 rounded-xl mt-0.5 flex-shrink-0">
-                <PharmacistIcon />
+            <div className="flex items-start gap-4 bg-white/60 backdrop-blur-sm p-4 rounded-xl border border-amber-100">
+              <div className="bg-amber-100 p-2.5 rounded-lg mt-0.5 flex-shrink-0">
+                <ClockIcon />
               </div>
               <div>
-                <h3 className="text-gray-900 font-semibold text-sm mb-1">For Pharmacists</h3>
-                <p className="text-gray-500 text-xs leading-relaxed">
-                  Dispense medications, manage inventory, and verify prescriptions
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="bg-orange-100 p-2.5 rounded-xl mt-0.5 flex-shrink-0">
-                <ReceptionistIcon />
-              </div>
-              <div>
-                <h3 className="text-gray-900 font-semibold text-sm mb-1">For Receptionists</h3>
-                <p className="text-gray-500 text-xs leading-relaxed">
-                  Schedule appointments, manage patient check-ins, and handle administrative tasks
+                <h3 className="text-gray-900 font-semibold text-sm mb-1">24/7 Access</h3>
+                <p className="text-gray-600 text-xs leading-relaxed">
+                  Access your dashboard anytime, anywhere with real-time updates
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side - Login Form */}
-        <div className="flex-1 max-w-lg flex items-center h-full">
-          <div className="bg-white rounded-3xl shadow-lg p-8 w-full">
-            <div className="text-center mb-6">
-              <h1 className="text-xl font-semibold text-gray-800 mb-1">Welcome Back</h1>
-              <p className="text-gray-600 text-xs">Select your role to continue</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {roles.map((role) => {
-                const Icon = role.icon;
-                const isActive = activeTab === role.id;
-                const colors = roleColors[role.id];
-                
-                return (
-                  <button
-                    key={role.id}
-                    onClick={() => setActiveTab(role.id)}
-                    type="button"
-                    className={`py-2.5 px-3 rounded-xl font-medium text-xs transition-all flex items-center justify-center gap-2 ${
-                      isActive
-                        ? `${colors.bg} text-white shadow-md`
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <div className={isActive ? 'text-white' : 'text-gray-600'}>
-                      <Icon />
-                    </div>
-                    {role.label}
-                  </button>
-                );
-              })}
+        
+        <div className="flex-1 max-w-md flex items-center">
+          <div className="bg-white rounded-3xl shadow-xl p-10 w-full border border-gray-100">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Sign In</h2>
+              <p className="text-gray-600 text-sm">Enter your credentials to access your dashboard</p>
             </div>
 
             {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-xl text-sm">
-                {error}
+              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-start gap-2">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label htmlFor="staffId" className="block text-gray-700 text-xs font-medium mb-1.5">
-                  Staff ID
-                </label>
-                <input
-                  id="staffId"
-                  type="text"
-                  value={staffId}
-                  onChange={handleStaffIdChange}
-                  className={`w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 ${currentColors.ring} focus:border-transparent transition-all`}
-                  placeholder={`${roles.find(r => r.id === activeTab)?.prefix}-001`}
-                  required
-                />
-                <p className="text-gray-500 text-xs mt-1">
-                  Role will auto-detect from your Staff ID
-                </p>
-              </div>
-
-              <div className="mb-4">
-                <label htmlFor="email" className="block text-gray-700 text-xs font-medium mb-1.5">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label htmlFor="email" className="block text-gray-700 text-sm font-semibold mb-2">
                   Email Address
                 </label>
                 <input
@@ -341,14 +185,14 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 ${currentColors.ring} focus:border-transparent transition-all`}
-                  placeholder={`${activeTab}@clinic.com`}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                  placeholder="you@clinic.com"
                   required
                 />
               </div>
 
-              <div className="mb-6">
-                <label htmlFor="password" className="block text-gray-700 text-xs font-medium mb-1.5">
+              <div>
+                <label htmlFor="password" className="block text-gray-700 text-sm font-semibold mb-2">
                   Password
                 </label>
                 <div className="relative">
@@ -357,14 +201,14 @@ export default function Login() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={`w-full px-3 py-2.5 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 ${currentColors.ring} focus:border-transparent transition-all`}
+                    className="w-full px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                     placeholder="••••••••"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors focus:outline-none"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors focus:outline-none"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -375,21 +219,33 @@ export default function Login() {
               <button 
                 type="submit"
                 disabled={isLoading}
-                className={`w-full ${currentColors.bg} ${currentColors.hoverBg} text-white font-semibold py-3 rounded-xl transition-all shadow-md mb-4 text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+                className="w-full bg-orange-500  hover:orange-200 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed mt-6"
               >
-                {isLoading ? 'Signing in...' : `Sign In as ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    Signing in...
+                  </span>
+                ) : (
+                  'Sign In'
+                )}
               </button>
             </form>
 
-            <p className="text-center text-gray-600 text-xs">
-              Don't have an account?{' '}
-              <button 
-                onClick={goToCreate}
-                className={`${currentColors.text} ${currentColors.hoverText} font-semibold transition-colors`}
-              >
-                Create one here
-              </button>
-            </p>
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <p className="text-center text-gray-600 text-sm">
+                Don't have an account?{' '}
+                <button 
+                  onClick={goToCreate}
+                  className="text-orange-600 hover:text-orange-700 font-semibold transition-colors"
+                >
+                  Create one here
+                </button>
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -20,6 +20,14 @@ exports.createPrescription = async (req, res) => {
 };
 
 
+exports.getAllPrescriptions = async (req, res) => {
+  try {
+    const prescriptions = await Prescription.find({ clinicId: req.user.clinicId }); 
+    res.json(prescriptions);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  } 
+};  
 exports.getPrescriptionsByPatient = async (req, res) => {
   try {
     const prescriptions = await Prescription.find({

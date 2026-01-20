@@ -5,6 +5,7 @@ const { authorizeRoles } = require("../middleware/authMiddleware");
 
 const {
   createPrescription,
+  getAllPrescriptions,
   getPrescriptionsByPatient,
   updatePrescription,
   deletePrescription
@@ -13,7 +14,7 @@ const {
 
 router.post("/", protect, authorizeRoles("doctor"), createPrescription);
 
-
+router.get("/", protect, authorizeRoles("pharmacist"), getAllPrescriptions);
 router.get("/:patientId", protect, getPrescriptionsByPatient);
 
 

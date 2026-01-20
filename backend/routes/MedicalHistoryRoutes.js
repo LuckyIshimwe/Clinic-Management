@@ -11,7 +11,7 @@ const {
 } = require("../controllers/MedicalHistoryControllers");
 
 
-router.post("/", protect, authorizeRoles("nurse"), createRecord);
+router.post("/", protect, authorizeRoles("doctor"), createRecord);
 
 
 router.get("/:patientId", protect, getRecordsByPatient);

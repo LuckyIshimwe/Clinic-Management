@@ -11,6 +11,8 @@ export default function DoctorDashboard() {
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [medicalHistory, setMedicalHistory] = useState([]);
+  const [labRequests, setLabRequests] = useState([]);
+  const [showVitalsModal, setShowVitalsModal] = useState(false);
   const [prescriptions, setPrescriptions] = useState([]);
   const [showConsultationModal, setShowConsultationModal] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
@@ -66,7 +68,7 @@ export default function DoctorDashboard() {
   const fetchPatients = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${baseURL}/patient`, {
+      const res = await axios.get(`${baseURL}/patient/get`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPatients(res.data);
@@ -81,10 +83,10 @@ export default function DoctorDashboard() {
     try {
       const token = localStorage.getItem('token');
       const [historyRes, prescRes] = await Promise.all([
-        axios.get(`${baseURL}/medical-history/patient/${patientId}`, {
+        axios.get(`${baseURL}/patient-history/${patientId}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get(`${baseURL}/prescription/patient/${patientId}`, {
+        axios.get(`${baseURL}/prescription/${patientId}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -104,7 +106,7 @@ export default function DoctorDashboard() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${baseURL}/medical-history`, {
+      const response = await axios.post(`${baseURL}/patient-history/`, {
         patientId: selectedPatient.patientId,
         ...consultationForm
       }, {
@@ -116,7 +118,7 @@ export default function DoctorDashboard() {
       
       setShowConsultationModal(false);
       
-      // Reset form
+     
       setConsultationForm({
         diagnosis: '',
         symptoms: '',
@@ -133,7 +135,7 @@ export default function DoctorDashboard() {
         followUpDate: ''
       });
       
-      // Refresh patient details
+     
       await fetchPatientDetails(selectedPatient.patientId);
       
     } catch (err) {
@@ -146,7 +148,7 @@ export default function DoctorDashboard() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${baseURL}/prescription`, {
+      const response = await axios.post(`${baseURL}/prescription/`, {
         patientId: selectedPatient.patientId,
         ...prescriptionForm
       }, {
@@ -158,13 +160,13 @@ export default function DoctorDashboard() {
       
       setShowPrescriptionModal(false);
       
-      // Reset form
+      
       setPrescriptionForm({
         medicines: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }],
         notes: ''
       });
       
-      // Refresh patient details
+      
       await fetchPatientDetails(selectedPatient.patientId);
       
     } catch (err) {
@@ -185,10 +187,10 @@ export default function DoctorDashboard() {
       
       setShowHospitalizeModal(false);
       
-      // Refresh patient list and details
+      
       await fetchPatients();
       if (selectedPatient) {
-        const updatedPatient = await axios.get(`${baseURL}/patient/${selectedPatient.patientId}`, {
+        const updatedPatient = await axios.get(`${baseURL}/patient/get${selectedPatient.patientId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSelectedPatient(updatedPatient.data);
@@ -214,7 +216,7 @@ export default function DoctorDashboard() {
       setShowReferralModal(false);
       setReferralForm({ referredTo: '', referralReason: '' });
       
-      // Refresh patient list and details
+      
       await fetchPatients();
       if (selectedPatient) {
         const updatedPatient = await axios.get(`${baseURL}/patient/${selectedPatient.patientId}`, {
@@ -260,7 +262,7 @@ export default function DoctorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-['Poppins']">
-      {/* Header */}
+     
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -285,7 +287,7 @@ export default function DoctorDashboard() {
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-12 gap-6">
-          {/* Sidebar - Patient List */}
+          
           <div className="col-span-4 bg-white rounded-2xl shadow-sm p-5">
             <h2 className="text-base font-semibold text-gray-800 mb-4">Patients</h2>
             <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -312,11 +314,11 @@ export default function DoctorDashboard() {
             </div>
           </div>
 
-          {/* Main Content */}
+
           <div className="col-span-8">
             {selectedPatient ? (
               <div className="space-y-6">
-                {/* Patient Info Card */}
+                
                 <div className="bg-white rounded-2xl shadow-sm p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
@@ -370,7 +372,7 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
 
-                {/* Tabs */}
+              
                 <div className="bg-white rounded-2xl shadow-sm">
                   <div className="flex border-b border-gray-200">
                     <button

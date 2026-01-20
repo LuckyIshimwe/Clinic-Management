@@ -7,7 +7,6 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:2000/api";
 export default function NurseDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('patients');
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [medicalHistory, setMedicalHistory] = useState([]);
@@ -16,11 +15,12 @@ export default function NurseDashboard() {
   const [showLabRequestModal, setShowLabRequestModal] = useState(false);
   const [showVitalsModal, setShowVitalsModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [patientForm, setPatientForm] = useState({
     fullName: '',
     age: '',
-    gender: 'Male',
+    gender: '',
     address: '',
     phone: '',
     bloodGroup: 'Unknown',
@@ -54,36 +54,87 @@ export default function NurseDashboard() {
     notes: ''
   });
 
+  
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+  }, []);
+
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     
+    console.log('Auth check:', { hasUser: !!userStr, hasToken: !!token });
+    
     if (!userStr || !token) {
+      console.log('No auth found, redirecting to login');
       navigate('/');
       return;
     }
 
-    const userData = JSON.parse(userStr);
-    if (userData.role !== 'nurse') {
-      navigate('/');
-      return;
-    }
+    try {
+      const userData = JSON.parse(userStr);
+      console.log('User data:', userData);
+      
+      if (userData.role !== 'nurse') {
+        console.log('User is not a nurse, redirecting');
+        navigate('/');
+        return;
+      }
 
-    setUser(userData);
-    fetchPatients();
-    fetchLabRequests();
+      setUser(userData);
+      fetchPatients();
+      fetchLabRequests();
+    } catch (err) {
+      console.error('Error parsing user data:', err);
+      navigate('/');
+    }
   }, [navigate]);
 
   const fetchPatients = async () => {
     try {
+      setError(null);
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${baseURL}/patients/get`, {
-        headers: { Authorization: `Bearer ${token}` }
+      
+      console.log('Fetching patients from:', `${baseURL}/patient/get`);
+      console.log('Token:', token ? 'Present' : 'Missing');
+      
+      const res = await axios.get(`${baseURL}/patient/get`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-      setPatients(res.data);
+      
+      console.log('Patients response:', res.data);
+      
+      if (Array.isArray(res.data)) {
+        setPatients(res.data);
+      } else if (res.data.patients && Array.isArray(res.data.patients)) {
+        setPatients(res.data.patients);
+      } else {
+        console.error('Unexpected response format:', res.data);
+        setError('Unexpected data format received from server');
+      }
+      
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching patients:', err);
+      console.error('Error fetching patients:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      if (err.response?.status === 401) {
+        alert('Session expired. Please login again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/');
+      } else {
+        setError(`Failed to load patients: ${err.response?.data?.message || err.message}`);
+      }
       setLoading(false);
     }
   };
@@ -91,28 +142,51 @@ export default function NurseDashboard() {
   const fetchLabRequests = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('Fetching lab requests from:', `${baseURL}/lab-request/`);
+      
       const res = await axios.get(`${baseURL}/lab-request/`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-      setLabRequests(res.data.requests || []);
+      
+      console.log('Lab requests response:', res.data);
+      setLabRequests(res.data.requests || res.data || []);
     } catch (err) {
-      console.error('Error fetching lab requests:', err);
+      console.error('Error fetching lab requests:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
     }
   };
 
   const fetchPatientDetails = async (patientId) => {
     try {
       const token = localStorage.getItem('token');
+      console.log('Fetching patient history for:', patientId);
+      
       const historyRes = await axios.get(`${baseURL}/patient-history/${patientId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-      setMedicalHistory(historyRes.data);
+      
+      console.log('Patient history response:', historyRes.data);
+      setMedicalHistory(historyRes.data || []);
     } catch (err) {
-      console.error('Error fetching patient details:', err);
+      console.error('Error fetching patient details:', {
+        message: err.message,
+        response: err.response?.data
+      });
+      setMedicalHistory([]);
     }
   };
 
   const handlePatientSelect = (patient) => {
+    console.log('Selected patient:', patient);
     setSelectedPatient(patient);
     fetchPatientDetails(patient.patientId);
   };
@@ -121,16 +195,19 @@ export default function NurseDashboard() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
+      console.log('Registering patient:', patientForm);
+      
       const response = await axios.post(`${baseURL}/patient/`, patientForm, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       console.log('Patient registered:', response.data);
       alert('Patient registered successfully: ' + response.data.patient.patientId);
       
       setShowPatientModal(false);
-      
-      
       setPatientForm({
         fullName: '',
         age: '',
@@ -143,11 +220,12 @@ export default function NurseDashboard() {
         allergies: ''
       });
       
-      
       await fetchPatients();
-      
     } catch (err) {
-      console.error('Error registering patient:', err);
+      console.error('Error registering patient:', {
+        message: err.message,
+        response: err.response?.data
+      });
       alert('Error registering patient: ' + (err.response?.data?.message || err.message));
     }
   };
@@ -156,11 +234,19 @@ export default function NurseDashboard() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
+      console.log('Creating lab request:', {
+        patientId: selectedPatient.patientId,
+        ...labRequestForm
+      });
+      
       const response = await axios.post(`${baseURL}/lab-request/`, {
         patientId: selectedPatient.patientId,
         ...labRequestForm
       }, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       console.log('Lab request created:', response.data);
@@ -168,12 +254,12 @@ export default function NurseDashboard() {
       
       setShowLabRequestModal(false);
       setLabRequestForm({ testType: '', testDetails: '', urgency: 'Normal' });
-      
-      
       await fetchLabRequests();
-      
     } catch (err) {
-      console.error('Error creating lab request:', err);
+      console.error('Error creating lab request:', {
+        message: err.message,
+        response: err.response?.data
+      });
       alert('Error creating lab request: ' + (err.response?.data?.message || err.message));
     }
   };
@@ -182,19 +268,25 @@ export default function NurseDashboard() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${baseURL}/medical-history/`, {
+      console.log('Recording vitals:', {
+        patientId: selectedPatient.patientId,
+        ...vitalsForm
+      });
+      
+      const response = await axios.post(`${baseURL}/patient-history/`, {
         patientId: selectedPatient.patientId,
         ...vitalsForm
       }, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       console.log('Vitals recorded:', response.data);
       alert('Vitals recorded successfully');
       
       setShowVitalsModal(false);
-      
-      
       setVitalsForm({
         diagnosis: 'Vital Signs Check',
         symptoms: '',
@@ -210,11 +302,12 @@ export default function NurseDashboard() {
         notes: ''
       });
       
-     
       await fetchPatientDetails(selectedPatient.patientId);
-      
     } catch (err) {
-      console.error('Error recording vitals:', err);
+      console.error('Error recording vitals:', {
+        message: err.message,
+        response: err.response?.data
+      });
       alert('Error recording vitals: ' + (err.response?.data?.message || err.message));
     }
   };
@@ -238,7 +331,7 @@ export default function NurseDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-['Poppins']">
-     
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -252,17 +345,40 @@ export default function NurseDashboard() {
               <p className="text-xs text-gray-600">Welcome back, {user?.name}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchPatients}
+              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              Refresh
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-      
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <button
             onClick={() => setShowPatientModal(true)}
@@ -323,34 +439,48 @@ export default function NurseDashboard() {
         </div>
 
         <div className="grid grid-cols-12 gap-6">
-         
+          {/* Patients List */}
           <div className="col-span-4 bg-white rounded-2xl shadow-sm p-5">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">Patients</h2>
-            <div className="space-y-2 max-h-[calc(100vh-350px)] overflow-y-auto">
-              {patients.map((patient) => (
-                <button
-                  key={patient._id}
-                  onClick={() => handlePatientSelect(patient)}
-                  className={`w-full text-left p-3 rounded-xl transition-all ${
-                    selectedPatient?._id === patient._id
-                      ? 'bg-green-50 border-2 border-green-200'
-                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-sm text-gray-800">{patient.fullName}</span>
-                    {patient.hospitalized && (
-                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-md">Hospitalized</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-600">{patient.patientId}</p>
-                  <p className="text-xs text-gray-500 mt-1">{patient.age} yrs • {patient.gender}</p>
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-gray-800">Patients ({patients.length})</h2>
+              <span className="text-xs text-gray-500">Total registered</span>
             </div>
+            
+            {patients.length === 0 ? (
+              <div className="text-center py-12">
+                <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <p className="text-sm text-gray-500">No patients registered yet</p>
+                <p className="text-xs text-gray-400 mt-1">Click "Register Patient" to add one</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[calc(100vh-350px)] overflow-y-auto">
+                {patients.map((patient) => (
+                  <button
+                    key={patient._id}
+                    onClick={() => handlePatientSelect(patient)}
+                    className={`w-full text-left p-3 rounded-xl transition-all ${
+                      selectedPatient?._id === patient._id
+                        ? 'bg-green-50 border-2 border-green-200'
+                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-sm text-gray-800">{patient.fullName}</span>
+                      {patient.hospitalized && (
+                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-md">Hospitalized</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600">{patient.patientId}</p>
+                    <p className="text-xs text-gray-500 mt-1">{patient.age} yrs • {patient.gender}</p>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-         
+          
           <div className="col-span-8">
             {selectedPatient ? (
               <div className="space-y-6">
@@ -386,7 +516,7 @@ export default function NurseDashboard() {
                   )}
                 </div>
 
-               
+             
                 <div className="bg-white rounded-2xl shadow-sm p-6">
                   <h3 className="text-base font-semibold text-gray-800 mb-4">Recent Medical History</h3>
                   <div className="space-y-3">
@@ -434,28 +564,32 @@ export default function NurseDashboard() {
       
         <div className="mt-6 bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">Recent Lab Requests</h2>
-          <div className="grid grid-cols-3 gap-4">
-            {labRequests.slice(0, 6).map((request) => (
-              <div key={request._id} className="bg-gray-50 p-4 rounded-xl">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-medium text-sm text-gray-800">{request.testType}</h4>
-                  <span className={`px-2 py-0.5 text-xs rounded-md ${
-                    request.status === 'completed' ? 'bg-green-100 text-green-700' :
-                    request.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
-                    'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {request.status}
-                  </span>
+          {labRequests.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">No lab requests yet</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              {labRequests.slice(0, 6).map((request) => (
+                <div key={request._id} className="bg-gray-50 p-4 rounded-xl">
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="font-medium text-sm text-gray-800">{request.testType}</h4>
+                    <span className={`px-2 py-0.5 text-xs rounded-md ${
+                      request.status === 'completed' ? 'bg-green-100 text-green-700' :
+                      request.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {request.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600">Patient ID: {request.patientId}</p>
+                  <p className="text-xs text-gray-500 mt-1">{request.urgency} priority</p>
                 </div>
-                <p className="text-xs text-gray-600">Patient ID: {request.patientId}</p>
-                <p className="text-xs text-gray-500 mt-1">{request.urgency} priority</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      
+     
       {showPatientModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -618,7 +752,7 @@ export default function NurseDashboard() {
         </div>
       )}
 
-     
+      {/* Lab Request Modal */}
       {showLabRequestModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full">
@@ -690,7 +824,7 @@ export default function NurseDashboard() {
         </div>
       )}
 
-     
+      {/* Record Vitals Modal */}
       {showVitalsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
