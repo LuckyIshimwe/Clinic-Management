@@ -54,7 +54,7 @@ export default function ReceptionistDashboard() {
   const fetchPatients = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${baseURL}/patient`, {
+      const res = await axios.get(`${baseURL}/patient/get`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       console.log('Patients fetched:', res.data);

@@ -18,6 +18,9 @@ export default function DoctorDashboard() {
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showHospitalizeModal, setShowHospitalizeModal] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [consultationForm, setConsultationForm] = useState({
@@ -49,7 +52,7 @@ export default function DoctorDashboard() {
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     const token = localStorage.getItem('token');
-    
+
     if (!userStr || !token) {
       navigate('/');
       return;
@@ -63,6 +66,12 @@ export default function DoctorDashboard() {
 
     setUser(userData);
     fetchPatients();
+    fetchNotifications();
+    
+   
+    const notificationInterval = setInterval(fetchNotifications, 30000);
+    
+    return () => clearInterval(notificationInterval);
   }, [navigate]);
 
   const fetchPatients = async () => {
@@ -76,6 +85,70 @@ export default function DoctorDashboard() {
     } catch (err) {
       console.error('Error fetching patients:', err);
       setLoading(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${baseURL}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      console.log('Notifications response:', res.data);
+      setNotifications(res.data.notifications || []);
+      setUnreadCount(res.data.unreadCount || 0);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`${baseURL}/notifications/${notificationId}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      
+      setNotifications(notifications.map(notif => 
+        notif._id === notificationId ? { ...notif, isRead: true } : notif
+      ));
+      setUnreadCount(Math.max(0, unreadCount - 1));
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`${baseURL}/notifications/mark-all-read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      
+      setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    
+    if (!notification.isRead) {
+      await markNotificationAsRead(notification._id);
+    }
+    
+    
+    if (notification.patientId) {
+      const patient = patients.find(p => p.patientId === notification.patientId);
+      if (patient) {
+        setSelectedPatient(patient);
+        fetchPatientDetails(patient.patientId);
+        setShowNotificationsModal(false);
+      }
     }
   };
 
@@ -99,6 +172,7 @@ export default function DoctorDashboard() {
 
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
+    console.log('Selected patient:', patient);
     fetchPatientDetails(patient.patientId);
   };
 
@@ -112,13 +186,11 @@ export default function DoctorDashboard() {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       console.log('Consultation recorded:', response.data);
       alert('Consultation recorded successfully');
-      
+
       setShowConsultationModal(false);
-      
-     
       setConsultationForm({
         diagnosis: '',
         symptoms: '',
@@ -134,10 +206,8 @@ export default function DoctorDashboard() {
         notes: '',
         followUpDate: ''
       });
-      
-     
+
       await fetchPatientDetails(selectedPatient.patientId);
-      
     } catch (err) {
       console.error('Error recording consultation:', err);
       alert('Error recording consultation: ' + (err.response?.data?.message || err.message));
@@ -149,26 +219,22 @@ export default function DoctorDashboard() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(`${baseURL}/prescription/`, {
-        patientId: selectedPatient.patientId,
+        patientId: selectedPatient._id,
         ...prescriptionForm
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       console.log('Prescription created:', response.data);
       alert('Prescription created successfully');
-      
+
       setShowPrescriptionModal(false);
-      
-      
       setPrescriptionForm({
         medicines: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }],
         notes: ''
       });
-      
-      
+
       await fetchPatientDetails(selectedPatient.patientId);
-      
     } catch (err) {
       console.error('Error creating prescription:', err);
       alert('Error creating prescription: ' + (err.response?.data?.message || err.message));
@@ -181,21 +247,19 @@ export default function DoctorDashboard() {
       const response = await axios.put(`${baseURL}/patient/${selectedPatient.patientId}/hospitalize`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       console.log('Patient hospitalized:', response.data);
       alert('Patient hospitalized successfully');
-      
+
       setShowHospitalizeModal(false);
-      
-      
       await fetchPatients();
-      if (selectedPatient) {
-        const updatedPatient = await axios.get(`${baseURL}/patient/get${selectedPatient.patientId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setSelectedPatient(updatedPatient.data);
-      }
       
+      if (selectedPatient) {
+        const updatedPatient = patients.find(p => p.patientId === selectedPatient.patientId);
+        if (updatedPatient) {
+          setSelectedPatient({ ...updatedPatient, hospitalized: true });
+        }
+      }
     } catch (err) {
       console.error('Error hospitalizing patient:', err);
       alert('Error hospitalizing patient: ' + (err.response?.data?.message || err.message));
@@ -209,22 +273,14 @@ export default function DoctorDashboard() {
       const response = await axios.put(`${baseURL}/patient/${selectedPatient.patientId}/refer`, referralForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       console.log('Patient referred:', response.data);
       alert('Referral sent successfully');
-      
+
       setShowReferralModal(false);
       setReferralForm({ referredTo: '', referralReason: '' });
-      
-      
+
       await fetchPatients();
-      if (selectedPatient) {
-        const updatedPatient = await axios.get(`${baseURL}/patient/${selectedPatient.patientId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setSelectedPatient(updatedPatient.data);
-      }
-      
     } catch (err) {
       console.error('Error sending referral:', err);
       alert('Error sending referral: ' + (err.response?.data?.message || err.message));
@@ -268,7 +324,7 @@ export default function DoctorDashboard() {
           <div className="flex items-center gap-4">
             <div className="bg-teal-600 p-2.5 rounded-xl">
               <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
               </svg>
             </div>
             <div>
@@ -276,12 +332,31 @@ export default function DoctorDashboard() {
               <p className="text-xs text-gray-600">Welcome back, Dr. {user?.name}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            
+            <button
+              onClick={() => setShowNotificationsModal(true)}
+              className="relative px-4 py-2 bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            </button>
+            
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
@@ -295,11 +370,10 @@ export default function DoctorDashboard() {
                 <button
                   key={patient._id}
                   onClick={() => handlePatientSelect(patient)}
-                  className={`w-full text-left p-3 rounded-xl transition-all ${
-                    selectedPatient?._id === patient._id
+                  className={`w-full text-left p-3 rounded-xl transition-all ${selectedPatient?._id === patient._id
                       ? 'bg-teal-50 border-2 border-teal-200'
                       : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-medium text-sm text-gray-800">{patient.fullName}</span>
@@ -314,7 +388,7 @@ export default function DoctorDashboard() {
             </div>
           </div>
 
-
+          
           <div className="col-span-8">
             {selectedPatient ? (
               <div className="space-y-6">
@@ -340,7 +414,7 @@ export default function DoctorDashboard() {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="bg-gray-50 p-3 rounded-xl">
                       <p className="text-xs text-gray-600 mb-1">Age</p>
@@ -372,26 +446,24 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
 
-              
+               
                 <div className="bg-white rounded-2xl shadow-sm">
                   <div className="flex border-b border-gray-200">
                     <button
                       onClick={() => setActiveTab('history')}
-                      className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-                        activeTab === 'history'
+                      className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${activeTab === 'history'
                           ? 'text-teal-600 border-b-2 border-teal-600'
                           : 'text-gray-600 hover:text-gray-800'
-                      }`}
+                        }`}
                     >
                       Medical History
                     </button>
                     <button
                       onClick={() => setActiveTab('prescriptions')}
-                      className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-                        activeTab === 'prescriptions'
+                      className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${activeTab === 'prescriptions'
                           ? 'text-teal-600 border-b-2 border-teal-600'
                           : 'text-gray-600 hover:text-gray-800'
-                      }`}
+                        }`}
                     >
                       Prescriptions
                     </button>
@@ -402,9 +474,28 @@ export default function DoctorDashboard() {
                       <div className="space-y-4">
                         {medicalHistory.length > 0 ? (
                           medicalHistory.map((record) => (
+
                             <div key={record._id} className="bg-gray-50 p-4 rounded-xl">
                               <div className="flex items-start justify-between mb-2">
-                                <h3 className="font-medium text-gray-800">{record.diagnosis}</h3>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-medium text-gray-800">{selectedPatient.medicalHistory}</h3>
+                                    {record.requiresDoctorAttention && (
+                                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-md">
+                                        Requires Attention
+                                      </span>
+                                    )}
+                                    {record.severity && (
+                                      <span className={`px-2 py-0.5 text-xs rounded-md ${
+                                        record.severity === 'high' ? 'bg-red-100 text-red-700' :
+                                        record.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-green-100 text-green-700'
+                                      }`}>
+                                        {record.severity}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                                 <span className="text-xs text-gray-500">
                                   {new Date(record.createdAt).toLocaleDateString()}
                                 </span>
@@ -478,7 +569,88 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      {/* Consultation Modal */}
+      
+      {showNotificationsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">Notifications</h2>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllNotificationsAsRead}
+                    className="px-3 py-1.5 text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg font-medium transition-colors"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotificationsModal(false)}
+                  className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              {notifications.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <p className="text-gray-500">No notifications yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map((notification) => (
+                    <button
+                      key={notification._id}
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`w-full text-left p-4 rounded-xl transition-all ${
+                        notification.isRead 
+                          ? 'bg-gray-50 hover:bg-gray-100' 
+                          : 'bg-teal-50 border-2 border-teal-200 hover:bg-teal-100'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-sm text-gray-800">{notification.title}</h3>
+                          {!notification.isRead && (
+                            <span className="w-2 h-2 bg-teal-600 rounded-full"></span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {new Date(notification.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">{notification.message}</p>
+                      {notification.patientId && (
+                        <p className="text-xs text-teal-600 mt-2">
+                          Click to view patient: {notification.patientId}
+                        </p>
+                      )}
+                      {notification.severity && (
+                        <span className={`inline-block mt-2 px-2 py-0.5 text-xs rounded-md ${
+                          notification.severity === 'high' ? 'bg-red-100 text-red-700' :
+                          notification.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {notification.severity} severity
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      
       {showConsultationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -492,16 +664,16 @@ export default function DoctorDashboard() {
                   type="text"
                   required
                   value={consultationForm.diagnosis}
-                  onChange={(e) => setConsultationForm({...consultationForm, diagnosis: e.target.value})}
+                  onChange={(e) => setConsultationForm({ ...consultationForm, diagnosis: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Symptoms</label>
                 <textarea
                   value={consultationForm.symptoms}
-                  onChange={(e) => setConsultationForm({...consultationForm, symptoms: e.target.value})}
+                  onChange={(e) => setConsultationForm({ ...consultationForm, symptoms: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   rows={2}
                 />
@@ -512,7 +684,7 @@ export default function DoctorDashboard() {
                 <textarea
                   required
                   value={consultationForm.treatment}
-                  onChange={(e) => setConsultationForm({...consultationForm, treatment: e.target.value})}
+                  onChange={(e) => setConsultationForm({ ...consultationForm, treatment: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   rows={3}
                 />
@@ -527,7 +699,7 @@ export default function DoctorDashboard() {
                     value={consultationForm.vitals.bloodPressure}
                     onChange={(e) => setConsultationForm({
                       ...consultationForm,
-                      vitals: {...consultationForm.vitals, bloodPressure: e.target.value}
+                      vitals: { ...consultationForm.vitals, bloodPressure: e.target.value }
                     })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   />
@@ -540,7 +712,7 @@ export default function DoctorDashboard() {
                     value={consultationForm.vitals.temperature}
                     onChange={(e) => setConsultationForm({
                       ...consultationForm,
-                      vitals: {...consultationForm.vitals, temperature: e.target.value}
+                      vitals: { ...consultationForm.vitals, temperature: e.target.value }
                     })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   />
@@ -551,7 +723,7 @@ export default function DoctorDashboard() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea
                   value={consultationForm.notes}
-                  onChange={(e) => setConsultationForm({...consultationForm, notes: e.target.value})}
+                  onChange={(e) => setConsultationForm({ ...consultationForm, notes: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   rows={2}
                 />
@@ -577,7 +749,7 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Prescription Modal */}
+     
       {showPrescriptionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -607,7 +779,7 @@ export default function DoctorDashboard() {
                     onChange={(e) => {
                       const newMeds = [...prescriptionForm.medicines];
                       newMeds[idx].name = e.target.value;
-                      setPrescriptionForm({...prescriptionForm, medicines: newMeds});
+                      setPrescriptionForm({ ...prescriptionForm, medicines: newMeds });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                   />
@@ -620,7 +792,7 @@ export default function DoctorDashboard() {
                       onChange={(e) => {
                         const newMeds = [...prescriptionForm.medicines];
                         newMeds[idx].dosage = e.target.value;
-                        setPrescriptionForm({...prescriptionForm, medicines: newMeds});
+                        setPrescriptionForm({ ...prescriptionForm, medicines: newMeds });
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                     />
@@ -632,7 +804,7 @@ export default function DoctorDashboard() {
                       onChange={(e) => {
                         const newMeds = [...prescriptionForm.medicines];
                         newMeds[idx].frequency = e.target.value;
-                        setPrescriptionForm({...prescriptionForm, medicines: newMeds});
+                        setPrescriptionForm({ ...prescriptionForm, medicines: newMeds });
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                     />
@@ -644,7 +816,7 @@ export default function DoctorDashboard() {
                       onChange={(e) => {
                         const newMeds = [...prescriptionForm.medicines];
                         newMeds[idx].duration = e.target.value;
-                        setPrescriptionForm({...prescriptionForm, medicines: newMeds});
+                        setPrescriptionForm({ ...prescriptionForm, medicines: newMeds });
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                     />
@@ -656,7 +828,7 @@ export default function DoctorDashboard() {
                     onChange={(e) => {
                       const newMeds = [...prescriptionForm.medicines];
                       newMeds[idx].instructions = e.target.value;
-                      setPrescriptionForm({...prescriptionForm, medicines: newMeds});
+                      setPrescriptionForm({ ...prescriptionForm, medicines: newMeds });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                   />
@@ -675,7 +847,7 @@ export default function DoctorDashboard() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea
                   value={prescriptionForm.notes}
-                  onChange={(e) => setPrescriptionForm({...prescriptionForm, notes: e.target.value})}
+                  onChange={(e) => setPrescriptionForm({ ...prescriptionForm, notes: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                   rows={2}
                 />
@@ -701,7 +873,7 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Hospitalize Modal */}
+     
       {showHospitalizeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
@@ -727,7 +899,7 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Referral Modal */}
+      
       {showReferralModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full">
@@ -741,7 +913,7 @@ export default function DoctorDashboard() {
                   type="text"
                   required
                   value={referralForm.referredTo}
-                  onChange={(e) => setReferralForm({...referralForm, referredTo: e.target.value})}
+                  onChange={(e) => setReferralForm({ ...referralForm, referredTo: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-transparent"
                   placeholder="Specialist name or hospital"
                 />
@@ -752,7 +924,7 @@ export default function DoctorDashboard() {
                 <textarea
                   required
                   value={referralForm.referralReason}
-                  onChange={(e) => setReferralForm({...referralForm, referralReason: e.target.value})}
+                  onChange={(e) => setReferralForm({ ...referralForm, referralReason: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-600 focus:border-transparent"
                   rows={4}
                   placeholder="Detailed reason for referral..."

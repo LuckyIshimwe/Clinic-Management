@@ -22,6 +22,7 @@ const ClinicRoutes = require('./routes/clinicRoutes');
 // const ReferralRoutes = require('./routes/ReferralRoutes');
  const MedicalHistoryRoutes = require('./routes/MedicalHistoryRoutes');
  const prescriptionRoutes = require('./routes/PrescriptionRoutes');
+ const NotificationRoutes = require('./routes/NotificationRoutes');
 
 // Route Middlewares
 app.use('/api/user', UserRoutes);
@@ -33,6 +34,7 @@ app.use('/api/clinic', ClinicRoutes);
 // app.use('/api/referral', ReferralRoutes);
 app.use('/api/patient-history', MedicalHistoryRoutes);
 app.use('/api/prescription', prescriptionRoutes);
+app.use('/api/notifications', NotificationRoutes);
 
 app.get('/', (req, res) => {
   res.json({ 

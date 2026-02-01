@@ -11,6 +11,7 @@ function detectRoleFromStaffId(staffId) {
   if (id.includes("pharmacist") || id.includes("pharm")) return "pharmacist";
   if (id.includes("receptionist") || id.includes("recep")) return "receptionist";
   if (id.includes("admin")) return "admin";
+  if (id.includes("labtechnician") || id.includes("labtech")) return "labtechnician";
 
   return "staff"; 
 }

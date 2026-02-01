@@ -85,6 +85,9 @@ export default function Login() {
         case 'receptionist':
           navigate('/receptionist');
           break;
+        case 'labtechnician':
+          navigate('/labtechnician');
+          break;
         default:
           navigate('/dashboard');
       }

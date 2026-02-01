@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
-const { authorizeRoles } = require("../middleware/authMiddleware");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 const {
   createPrescription,
@@ -14,12 +13,12 @@ const {
 
 router.post("/", protect, authorizeRoles("doctor"), createPrescription);
 
-router.get("/", protect, authorizeRoles("pharmacist"), getAllPrescriptions);
-router.get("/:patientId", protect, getPrescriptionsByPatient);
+router.get("/", protect, authorizeRoles("doctor", "pharmacist"), getAllPrescriptions);
+
+router.get("/:patientId", protect, authorizeRoles("doctor", "pharmacist"), getPrescriptionsByPatient);
 
 
-router.put("/:id", protect, authorizeRoles("doctor"), updatePrescription);
-
+router.put("/:id", protect, authorizeRoles("doctor", "pharmacist"), updatePrescription);
 
 router.delete("/:id", protect, authorizeRoles("doctor"), deletePrescription);
 

@@ -14,6 +14,7 @@ export default function NurseDashboard() {
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showLabRequestModal, setShowLabRequestModal] = useState(false);
   const [showVitalsModal, setShowVitalsModal] = useState(false);
+  const [showTriageModal, setShowTriageModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -51,7 +52,17 @@ export default function NurseDashboard() {
       height: '',
       oxygenSaturation: ''
     },
-    notes: ''
+    notes: '',
+    requiresDoctorAttention: false,
+    severity: 'low'
+  });
+
+  const [triageForm, setTriageForm] = useState({
+    symptoms: '',
+    severity: 'low',
+    requiresDoctorAttention: false,
+    triageNotes: '',
+    initialTreatment: ''
   });
 
   
@@ -194,6 +205,7 @@ export default function NurseDashboard() {
   const handleRegisterPatient = async (e) => {
     e.preventDefault();
     try {
+      console.log('Submitting patient registration form:', patientForm);
       const token = localStorage.getItem('token');
       console.log('Registering patient:', patientForm);
       
@@ -284,7 +296,7 @@ export default function NurseDashboard() {
       });
       
       console.log('Vitals recorded:', response.data);
-      alert('Vitals recorded successfully');
+      alert('Vitals recorded successfully' + (vitalsForm.requiresDoctorAttention ? ' - Doctor has been notified' : ''));
       
       setShowVitalsModal(false);
       setVitalsForm({
@@ -299,7 +311,9 @@ export default function NurseDashboard() {
           height: '',
           oxygenSaturation: ''
         },
-        notes: ''
+        notes: '',
+        requiresDoctorAttention: false,
+        severity: 'low'
       });
       
       await fetchPatientDetails(selectedPatient.patientId);
@@ -309,6 +323,55 @@ export default function NurseDashboard() {
         response: err.response?.data
       });
       alert('Error recording vitals: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleTriageAssessment = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      
+      
+      const response = await axios.post(`${baseURL}/patient-history/`, {
+        patientId: selectedPatient.patientId,
+        diagnosis: 'Triage Assessment',
+        symptoms: triageForm.symptoms,
+        treatment: triageForm.initialTreatment || 'Assessment completed',
+        notes: triageForm.triageNotes,
+        requiresDoctorAttention: triageForm.requiresDoctorAttention,
+        severity: triageForm.severity,
+        vitals: {}
+      }, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Triage assessment recorded:', response.data);
+      
+      const message = triageForm.requiresDoctorAttention 
+        ? 'Triage completed - Doctor has been notified for review'
+        : 'Triage completed - Patient cleared for nurse care';
+      
+      alert(message);
+      
+      setShowTriageModal(false);
+      setTriageForm({
+        symptoms: '',
+        severity: 'low',
+        requiresDoctorAttention: false,
+        triageNotes: '',
+        initialTreatment: ''
+      });
+      
+      await fetchPatientDetails(selectedPatient.patientId);
+    } catch (err) {
+      console.error('Error recording triage:', {
+        message: err.message,
+        response: err.response?.data
+      });
+      alert('Error recording triage: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -331,7 +394,7 @@ export default function NurseDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-['Poppins']">
-      {/* Header */}
+     
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -363,7 +426,7 @@ export default function NurseDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Error Display */}
+        
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
             <div className="flex items-start gap-3">
@@ -378,8 +441,8 @@ export default function NurseDashboard() {
           </div>
         )}
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+       
+        <div className="grid grid-cols-4 gap-4 mb-6">
           <button
             onClick={() => setShowPatientModal(true)}
             className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow"
@@ -393,6 +456,26 @@ export default function NurseDashboard() {
               <div className="text-left">
                 <h3 className="font-semibold text-gray-800 text-sm">Register Patient</h3>
                 <p className="text-xs text-gray-600">Add new patient</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => selectedPatient && setShowTriageModal(true)}
+            disabled={!selectedPatient}
+            className={`bg-white p-4 rounded-2xl shadow-sm transition-all ${
+              selectedPatient ? 'hover:shadow-md' : 'opacity-50 cursor-not-allowed'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="bg-yellow-100 p-3 rounded-xl">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-800 text-sm">Triage Assessment</h3>
+                <p className="text-xs text-gray-600">Initial evaluation</p>
               </div>
             </div>
           </button>
@@ -439,7 +522,7 @@ export default function NurseDashboard() {
         </div>
 
         <div className="grid grid-cols-12 gap-6">
-          {/* Patients List */}
+          
           <div className="col-span-4 bg-white rounded-2xl shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-gray-800">Patients ({patients.length})</h2>
@@ -480,7 +563,7 @@ export default function NurseDashboard() {
             )}
           </div>
 
-          
+         
           <div className="col-span-8">
             {selectedPatient ? (
               <div className="space-y-6">
@@ -516,7 +599,7 @@ export default function NurseDashboard() {
                   )}
                 </div>
 
-             
+               
                 <div className="bg-white rounded-2xl shadow-sm p-6">
                   <h3 className="text-base font-semibold text-gray-800 mb-4">Recent Medical History</h3>
                   <div className="space-y-3">
@@ -524,7 +607,28 @@ export default function NurseDashboard() {
                       medicalHistory.slice(0, 5).map((record) => (
                         <div key={record._id} className="bg-gray-50 p-4 rounded-xl">
                           <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-medium text-sm text-gray-800">{record.diagnosis}</h4>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-sm text-gray-800">{record.diagnosis}</h4>
+                                {record.requiresDoctorAttention && (
+                                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-md">
+                                    Doctor Notified
+                                  </span>
+                                )}
+                                {record.severity && (
+                                  <span className={`px-2 py-0.5 text-xs rounded-md ${
+                                    record.severity === 'high' ? 'bg-red-100 text-red-700' :
+                                    record.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-green-100 text-green-700'
+                                  }`}>
+                                    {record.severity}
+                                  </span>
+                                )}
+                              </div>
+                              {record.symptoms && (
+                                <p className="text-xs text-gray-600 mt-1">Symptoms: {record.symptoms}</p>
+                              )}
+                            </div>
                             <span className="text-xs text-gray-500">
                               {new Date(record.createdAt).toLocaleDateString()}
                             </span>
@@ -561,7 +665,7 @@ export default function NurseDashboard() {
           </div>
         </div>
 
-      
+        
         <div className="mt-6 bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">Recent Lab Requests</h2>
           {labRequests.length === 0 ? (
@@ -589,7 +693,6 @@ export default function NurseDashboard() {
         </div>
       </div>
 
-     
       {showPatientModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -629,6 +732,7 @@ export default function NurseDashboard() {
                     onChange={(e) => setPatientForm({...patientForm, gender: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
                   >
+                    <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
@@ -752,7 +856,113 @@ export default function NurseDashboard() {
         </div>
       )}
 
-      {/* Lab Request Modal */}
+      
+      {showTriageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">Triage Assessment</h2>
+              <p className="text-sm text-gray-600 mt-1">Patient: {selectedPatient?.fullName}</p>
+            </div>
+            <form onSubmit={handleTriageAssessment} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Symptoms *</label>
+                <textarea
+                  required
+                  value={triageForm.symptoms}
+                  onChange={(e) => setTriageForm({...triageForm, symptoms: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-600 focus:border-transparent"
+                  rows={3}
+                  placeholder="Describe patient's symptoms..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Severity Level *</label>
+                <select
+                  required
+                  value={triageForm.severity}
+                  onChange={(e) => setTriageForm({...triageForm, severity: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-600 focus:border-transparent"
+                >
+                  <option value="low">Low - Minor symptoms</option>
+                  <option value="medium">Medium - Moderate symptoms</option>
+                  <option value="high">High - Severe symptoms</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Initial Treatment Plan</label>
+                <textarea
+                  value={triageForm.initialTreatment}
+                  onChange={(e) => setTriageForm({...triageForm, initialTreatment: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-600 focus:border-transparent"
+                  rows={2}
+                  placeholder="Immediate actions taken or planned..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Triage Notes</label>
+                <textarea
+                  value={triageForm.triageNotes}
+                  onChange={(e) => setTriageForm({...triageForm, triageNotes: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-600 focus:border-transparent"
+                  rows={2}
+                  placeholder="Additional observations..."
+                />
+              </div>
+
+              <div className="bg-yellow-50 p-4 rounded-xl">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={triageForm.requiresDoctorAttention}
+                    onChange={(e) => setTriageForm({...triageForm, requiresDoctorAttention: e.target.checked})}
+                    className="w-5 h-5 text-yellow-600 border-gray-300 rounded focus:ring-yellow-600"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">Requires Doctor Attention</span>
+                    <p className="text-xs text-gray-600">Check this to notify doctors about this patient</p>
+                  </div>
+                </label>
+              </div>
+
+              {triageForm.requiresDoctorAttention && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-orange-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">Doctor will be notified</p>
+                      <p className="text-xs text-orange-700 mt-1">Available doctors will receive a notification to review this patient</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowTriageModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl font-medium transition-colors"
+                >
+                  Complete Triage
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+     
       {showLabRequestModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full">
@@ -939,6 +1149,34 @@ export default function NurseDashboard() {
                   rows={2}
                   placeholder="Additional observations..."
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Severity Assessment</label>
+                <select
+                  value={vitalsForm.severity}
+                  onChange={(e) => setVitalsForm({...vitalsForm, severity: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                >
+                  <option value="low">Low - Stable condition</option>
+                  <option value="medium">Medium - Monitoring needed</option>
+                  <option value="high">High - Immediate attention</option>
+                </select>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-xl">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={vitalsForm.requiresDoctorAttention}
+                    onChange={(e) => setVitalsForm({...vitalsForm, requiresDoctorAttention: e.target.checked})}
+                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-600"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">Notify Doctor</span>
+                    <p className="text-xs text-gray-600">Check if this patient needs doctor's review</p>
+                  </div>
+                </label>
               </div>
 
               <div className="flex gap-3 pt-4">

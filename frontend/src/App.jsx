@@ -10,6 +10,7 @@ import NurseDashboard from './components/NurseDashboard';
 import PharmacistDashboard from './components/PharmacistDashboard';
 import ProtectedRoute from './components/protectedRoute';
 import ReceptionistDashboard from './components/RecepDashboard';
+import LabTechnicianDashboard from './components/LabtechnicicanDashboard';
 
 
 
@@ -55,6 +56,14 @@ function App() {
             </ProtectedRoute>
           } 
         /> 
+        <Route 
+          path="/labtechnician" 
+          element={
+            <ProtectedRoute allowedRoles={['labtechnician']}>
+              <LabTechnicianDashboard />
+            </ProtectedRoute>
+          } 
+        />
       </Routes>
     </Router>
   )

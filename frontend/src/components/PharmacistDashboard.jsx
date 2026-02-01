@@ -8,6 +8,9 @@ export default function PharmacistDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('Active');
@@ -38,6 +41,11 @@ export default function PharmacistDashboard() {
 
       setUser(userData);
       fetchPrescriptions();
+      fetchNotifications();
+      
+      
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
     } catch (err) {
       console.error('Error parsing user data:', err);
       navigate('/');
@@ -57,16 +65,7 @@ export default function PharmacistDashboard() {
       });
       
       console.log('Prescriptions response:', res.data);
-      
-      if (Array.isArray(res.data)) {
-        setPrescriptions(res.data);
-      } else if (res.data.prescriptions && Array.isArray(res.data.prescriptions)) {
-        setPrescriptions(res.data.prescriptions);
-      } else {
-        console.error('Unexpected response format:', res.data);
-        setPrescriptions([]);
-      }
-      
+      setPrescriptions(Array.isArray(res.data) ? res.data : []);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching prescriptions:', err);
@@ -84,12 +83,52 @@ export default function PharmacistDashboard() {
     }
   };
 
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${baseURL}/notifications/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setNotifications(res.data.notifications || []);
+      setUnreadCount(res.data.unreadCount || 0);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
+
+  const markNotificationAsRead = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`${baseURL}/notifications/${id}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      fetchNotifications();
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`${baseURL}/notifications/read-all`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      fetchNotifications();
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+    }
+  };
+
   const handleDispense = async (prescriptionId) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(`${baseURL}/prescription/${prescriptionId}`, {
         status: 'Dispensed',
-        dispensedBy: user.staffId,
+        dispensedBy: user.staffId || user.name,
         dispensedDate: new Date()
       }, {
         headers: { 
@@ -104,10 +143,7 @@ export default function PharmacistDashboard() {
       await fetchPrescriptions();
       
       if (selectedPrescription && selectedPrescription._id === prescriptionId) {
-        const updatedPrescription = prescriptions.find(p => p._id === prescriptionId);
-        if (updatedPrescription) {
-          setSelectedPrescription({...updatedPrescription, status: 'Dispensed', dispensedDate: new Date()});
-        }
+        setSelectedPrescription(response.data.prescription);
       }
       
     } catch (err) {
@@ -134,10 +170,7 @@ export default function PharmacistDashboard() {
       await fetchPrescriptions();
       
       if (selectedPrescription && selectedPrescription._id === prescriptionId) {
-        const updatedPrescription = prescriptions.find(p => p._id === prescriptionId);
-        if (updatedPrescription) {
-          setSelectedPrescription({...updatedPrescription, status: 'Completed'});
-        }
+        setSelectedPrescription(response.data.prescription);
       }
       
     } catch (err) {
@@ -169,6 +202,7 @@ export default function PharmacistDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-['Poppins']">
+     
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -184,6 +218,22 @@ export default function PharmacistDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                Notifications
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            </button>
+            <button
               onClick={fetchPrescriptions}
               className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl text-sm font-medium transition-colors"
             >
@@ -197,6 +247,49 @@ export default function PharmacistDashboard() {
             </button>
           </div>
         </div>
+
+        
+        {showNotifications && (
+          <div className="absolute right-6 top-16 w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="font-semibold text-gray-800">Notifications</h3>
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="text-xs text-purple-600 hover:text-purple-700"
+                >
+                  Mark all as read
+                </button>
+              )}
+            </div>
+            <div className="divide-y divide-gray-100">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 text-sm">
+                  No notifications
+                </div>
+              ) : (
+                notifications.map((notif) => (
+                  <div
+                    key={notif._id}
+                    onClick={() => markNotificationAsRead(notif._id)}
+                    className={`p-4 hover:bg-gray-50 cursor-pointer ${!notif.isRead ? 'bg-purple-50' : ''}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-1.5 ${!notif.isRead ? 'bg-purple-600' : 'bg-gray-300'}`} />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-gray-800">{notif.title}</h4>
+                        <p className="text-xs text-gray-600 mt-1">{notif.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(notif.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
@@ -214,6 +307,7 @@ export default function PharmacistDashboard() {
           </div>
         )}
 
+        
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-5 rounded-2xl shadow-sm">
             <div className="flex items-center gap-3">
@@ -278,6 +372,7 @@ export default function PharmacistDashboard() {
           </div>
         </div>
 
+       
         <div className="bg-white rounded-2xl shadow-sm mb-6">
           <div className="flex border-b border-gray-200">
             {['All', 'Active', 'Dispensed', 'Completed'].map((status) => (
@@ -296,7 +391,9 @@ export default function PharmacistDashboard() {
           </div>
         </div>
 
+       
         <div className="grid grid-cols-12 gap-6">
+          
           <div className="col-span-5 bg-white rounded-2xl shadow-sm p-5">
             <h2 className="text-base font-semibold text-gray-800 mb-4">
               Prescriptions ({filteredPrescriptions.length})
@@ -324,8 +421,11 @@ export default function PharmacistDashboard() {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <span className="font-medium text-sm text-gray-800">
-                          Patient ID: {prescription.patientId}
+                          {prescription.patientId?.fullName || `Patient ${prescription.patientId}`}
                         </span>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {prescription.patientId?.patientId || 'N/A'}
+                        </p>
                       </div>
                       <span className={`px-2 py-0.5 text-xs rounded-md ${
                         prescription.status === 'Active' ? 'bg-yellow-100 text-yellow-700' :
@@ -335,6 +435,9 @@ export default function PharmacistDashboard() {
                         {prescription.status}
                       </span>
                     </div>
+                    <p className="text-xs text-gray-600 mb-1">
+                      Dr. {prescription.doctorName || prescription.doctorId || 'Unknown'}
+                    </p>
                     <p className="text-xs text-gray-600 mb-1">
                       {prescription.medicines?.length || 0} medicine(s)
                     </p>
@@ -347,13 +450,19 @@ export default function PharmacistDashboard() {
             )}
           </div>
 
+          
           <div className="col-span-7">
             {selectedPrescription ? (
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <div className="flex items-start justify-between mb-6">
                   <div>
                     <h2 className="text-xl font-semibold text-gray-800 mb-1">Prescription Details</h2>
-                    <p className="text-sm text-gray-600">Patient ID: {selectedPrescription.patientId}</p>
+                    <p className="text-sm text-gray-600">
+                      Patient: {selectedPrescription.patientId?.fullName || 'Unknown'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      ID: {selectedPrescription.patientId?.patientId || 'N/A'}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     {selectedPrescription.status === 'Active' && (
@@ -393,10 +502,18 @@ export default function PharmacistDashboard() {
                         {selectedPrescription.status}
                       </span>
                     </div>
-                    {selectedPrescription.doctorId && (
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Prescribed By</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        Dr. {selectedPrescription.doctorName || selectedPrescription.doctorId || 'Unknown'}
+                      </p>
+                    </div>
+                    {selectedPrescription.patientId?.age && (
                       <div>
-                        <p className="text-xs text-gray-600 mb-1">Prescribed By</p>
-                        <p className="text-sm font-medium text-gray-800">{selectedPrescription.doctorId}</p>
+                        <p className="text-xs text-gray-600 mb-1">Patient Age</p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {selectedPrescription.patientId.age} years • {selectedPrescription.patientId.gender}
+                        </p>
                       </div>
                     )}
                   </div>

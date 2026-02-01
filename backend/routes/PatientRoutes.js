@@ -22,7 +22,7 @@ router.get("/get", protect, getPatients);
 router.get("/:patientId", protect, getPatient);
 
 
-router.put("/:patientId", protect, authorizeRoles("doctor", "nurse"), updatePatient);
+router.put("/:patientId", protect, authorizeRoles("doctor", "nurse", "receptionist"), updatePatient);
 
 
 router.delete("/:patientId", protect, authorizeRoles("doctor", "admin"), deletePatient);
