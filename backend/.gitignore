@@ -1,4 +1,4 @@
-# Node dependencies
+# Dependencies
 node_modules/
 
 # Environment variables
@@ -7,31 +7,3 @@ node_modules/
 .env.development
 .env.test
 .env.production
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build output
-dist/
-build/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE / Editor settings
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-
-# Cache and temp files
-.cache/
-.tmp/
-.temp/
