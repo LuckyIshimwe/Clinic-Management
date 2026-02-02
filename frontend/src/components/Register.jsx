@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:2000/api";
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:2000/";
 
 const StethoscopeIcon = () => (
   <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +127,7 @@ export default function Register() {
       
       console.log('Sending data:', dataWithRole);
       
-      const res = await axios.post(`${baseURL}/user/register`, dataWithRole);
+      const res = await axios.post(`${baseURL}api/user/register`, dataWithRole);
       
       console.log('Response:', res.data);
       
