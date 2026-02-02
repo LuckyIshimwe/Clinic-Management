@@ -4,6 +4,29 @@ const connectDB = require('./config/db');
 const cors = require('cors');
 
 dotenv.config();
+const corsOptions = {
+  origin: [
+    'https://clinic-system-rust.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Clinic Management API is running',
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
 connectDB();
 
 const app = express();
@@ -68,3 +91,7 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 2000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
+app.use(cors(corsOptions));
+module.exports = app;
