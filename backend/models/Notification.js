@@ -16,12 +16,12 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['patient_attention', 'lab_result', 'appointment', 'general'],
+    enum: ['patient_attention', 'lab_result', 'general'],
     default: 'general'
   },
   patientId: {
     type: String,
-    ref: 'Patient'
+    ref: 'Student'
   },
   severity: {
     type: String,
@@ -31,14 +31,19 @@ const notificationSchema = new mongoose.Schema({
   isRead: {
     type: Boolean,
     default: false
+  },
+  schoolId: {
+    type: String,
+    default: 'SCHOOL001'
   }
 }, {
   timestamps: true
 });
 
-
+// Indexes
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, isRead: 1 });
 notificationSchema.index({ patientId: 1 });
+notificationSchema.index({ schoolId: 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

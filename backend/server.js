@@ -29,19 +29,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const UserRoutes = require('./routes/UserRoutes');
-const PatientRoutes = require('./routes/PatientRoutes');
+const studentRoutes = require('./routes/StudentRoutes');
 const ClinicRoutes = require('./routes/clinicRoutes');
 const LabRequestRoutes = require('./routes/LabRequestRoutes');
-const MedicalHistoryRoutes = require('./routes/MedicalHistoryRoutes');
+const MedicalHistoryRoutes = require('./routes/HealthVisitRoutes');
 const prescriptionRoutes = require('./routes/PrescriptionRoutes');
 const NotificationRoutes = require('./routes/NotificationRoutes');
 
 
 app.use('/api/user', UserRoutes);
-app.use('/api/patient', PatientRoutes);
+app.use('/api/students', studentRoutes);
 app.use('/api/clinic', ClinicRoutes);
 app.use('/api/lab-request', LabRequestRoutes);
-app.use('/api/patient-history', MedicalHistoryRoutes);
+app.use('/api/health-visits', MedicalHistoryRoutes);
 app.use('/api/prescription', prescriptionRoutes);
 app.use('/api/notifications', NotificationRoutes);
 
@@ -53,10 +53,10 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     endpoints: {
       users: '/api/user',
-      patients: '/api/patient',
+      students: '/api/student',
       clinics: '/api/clinic',
       labRequests: '/api/lab-request',
-      patientHistory: '/api/patient-history',
+      studentHistory: '/api/student-history',
       prescriptions: '/api/prescription',
       notifications: '/api/notifications'
     }

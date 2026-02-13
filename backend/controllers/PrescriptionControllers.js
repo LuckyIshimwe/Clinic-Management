@@ -1,6 +1,6 @@
 const Prescription = require("../models/Prescription");
 const User = require("../models/User");
-const Patient = require("../models/Patient");
+const Patient = require("../models/Student");
 const { createNotification } = require("./NotificationControllers");
 
 exports.createPrescription = async (req, res) => {
