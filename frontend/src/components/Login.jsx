@@ -54,11 +54,14 @@ export default function Login() {
     setError('');
     setIsLoading(true);
 
-    try {
-      const loginData = {
-        email,
-        password
-      };
+    
+      try {
+    const loginData = { email, password };
+    
+    console.log('Base URL:', baseURL);
+    console.log('Full login URL:', `${baseURL}/user/login`);
+    console.log('Login data:', loginData);
+
 
       const res = await axios.post(`${baseURL}/user/login`, loginData);
       

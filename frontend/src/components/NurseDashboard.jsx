@@ -7,372 +7,250 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:2000/api";
 export default function NurseDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [patients, setPatients] = useState([]);
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [medicalHistory, setMedicalHistory] = useState([]);
-  const [labRequests, setLabRequests] = useState([]);
-  const [showPatientModal, setShowPatientModal] = useState(false);
-  const [showLabRequestModal, setShowLabRequestModal] = useState(false);
-  const [showVitalsModal, setShowVitalsModal] = useState(false);
-  const [showTriageModal, setShowTriageModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
+  
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showVisitModal, setShowVisitModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  const [patientForm, setPatientForm] = useState({
+  const [registerForm, setRegisterForm] = useState({
     fullName: '',
+    studentId: '',
+    grade: '',
+    section: '',
     age: '',
     gender: '',
-    address: '',
-    phone: '',
+    familyName: '',
     bloodGroup: 'Unknown',
-    emergencyContact: {
-      name: '',
-      relationship: '',
-      phone: ''
+    parentContact: {
+      fatherName: '',
+      fatherPhone: '',
+      motherName: '',
+      motherPhone: '',
+      guardianName: '',
+      guardianPhone: '',
+      emergencyPhone: ''
     },
-    medicalHistory: '',
-    allergies: ''
+    allergies: '',
+    chronicConditions: '',
+    currentMedications: ''
   });
 
-  const [labRequestForm, setLabRequestForm] = useState({
-    testType: '',
-    testDetails: '',
-    urgency: 'Normal'
-  });
-
-  const [vitalsForm, setVitalsForm] = useState({
-    diagnosis: 'Vital Signs Check',
+  const [visitForm, setVisitForm] = useState({
+    chiefComplaint: '',
     symptoms: '',
-    treatment: 'Routine monitoring',
     vitals: {
-      bloodPressure: '',
       temperature: '',
+      bloodPressure: '',
       heartRate: '',
       weight: '',
       height: '',
       oxygenSaturation: ''
     },
-    notes: '',
-    requiresDoctorAttention: false,
-    severity: 'low'
-  });
-
-  const [triageForm, setTriageForm] = useState({
-    symptoms: '',
+    nurseAssessment: '',
+    nurseNotes: '',
     severity: 'low',
-    requiresDoctorAttention: false,
-    triageNotes: '',
-    initialTreatment: ''
-  });
-
-  
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    treatmentDecision: '',
+    nurseTreatment: {
+      medicationGiven: '',
+      dosage: '',
+      instructions: '',
+      treatmentNotes: ''
+    },
+    labRequest: {
+      testType: '',
+      testDetails: '',
+      urgency: 'Normal'
     }
-  }, []);
+  });
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     const token = localStorage.getItem('token');
-    
-    console.log('Auth check:', { hasUser: !!userStr, hasToken: !!token });
-    
+
     if (!userStr || !token) {
-      console.log('No auth found, redirecting to login');
       navigate('/');
       return;
     }
 
-    try {
-      const userData = JSON.parse(userStr);
-      console.log('User data:', userData);
-      
-      if (userData.role !== 'nurse') {
-        console.log('User is not a nurse, redirecting');
-        navigate('/');
-        return;
-      }
-
-      setUser(userData);
-      fetchPatients();
-      fetchLabRequests();
-    } catch (err) {
-      console.error('Error parsing user data:', err);
+    const userData = JSON.parse(userStr);
+    if (userData.role !== 'nurse') {
       navigate('/');
+      return;
     }
+
+    setUser(userData);
+    fetchStudents();
   }, [navigate]);
 
-  const fetchPatients = async () => {
+  const fetchStudents = async () => {
     try {
-      setError(null);
       const token = localStorage.getItem('token');
-      
-      console.log('Fetching patients from:', `${baseURL}/patient/get`);
-      console.log('Token:', token ? 'Present' : 'Missing');
-      
-      const res = await axios.get(`${baseURL}/patient/get`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const res = await axios.get(`${baseURL}/students/`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      
-      console.log('Patients response:', res.data);
-      
-      if (Array.isArray(res.data)) {
-        setPatients(res.data);
-      } else if (res.data.patients && Array.isArray(res.data.patients)) {
-        setPatients(res.data.patients);
-      } else {
-        console.error('Unexpected response format:', res.data);
-        setError('Unexpected data format received from server');
-      }
-      
+
+      setStudents(res.data.students); 
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching patients:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
-      
-      if (err.response?.status === 401) {
-        alert('Session expired. Please login again.');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/');
-      } else {
-        setError(`Failed to load patients: ${err.response?.data?.message || err.message}`);
-      }
+      console.error('Error fetching students:', err);
       setLoading(false);
     }
   };
 
-  const fetchLabRequests = async () => {
+  const fetchStudentHistory = async (studentId) => {
     try {
       const token = localStorage.getItem('token');
-      console.log('Fetching lab requests from:', `${baseURL}/lab-request/`);
-      
-      const res = await axios.get(`${baseURL}/lab-request/`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('Lab requests response:', res.data);
-      setLabRequests(res.data.requests || res.data || []);
+      const res = await axios.get(
+        `${baseURL}/health-visits/student/${studentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setMedicalHistory(res.data.visits || []);
     } catch (err) {
-      console.error('Error fetching lab requests:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
+      console.error('Error fetching student history:', err);
     }
   };
 
-  const fetchPatientDetails = async (patientId) => {
-    try {
-      const token = localStorage.getItem('token');
-      console.log('Fetching patient history for:', patientId);
-      
-      const historyRes = await axios.get(`${baseURL}/patient-history/${patientId}`, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('Patient history response:', historyRes.data);
-      setMedicalHistory(historyRes.data || []);
-    } catch (err) {
-      console.error('Error fetching patient details:', {
-        message: err.message,
-        response: err.response?.data
-      });
-      setMedicalHistory([]);
-    }
+  const handleStudentSelect = (student) => {
+    setSelectedStudent(student);
+    fetchStudentHistory(student.studentId);
   };
 
-  const handlePatientSelect = (patient) => {
-    console.log('Selected patient:', patient);
-    setSelectedPatient(patient);
-    fetchPatientDetails(patient.patientId);
-  };
-
-  const handleRegisterPatient = async (e) => {
-    e.preventDefault();
-    try {
-      console.log('Submitting patient registration form:', patientForm);
-      const token = localStorage.getItem('token');
-      console.log('Registering patient:', patientForm);
-      
-      const response = await axios.post(`${baseURL}/patient/`, patientForm, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('Patient registered:', response.data);
-      alert('Patient registered successfully: ' + response.data.patient.patientId);
-      
-      setShowPatientModal(false);
-      setPatientForm({
-        fullName: '',
-        age: '',
-        gender: 'Male',
-        address: '',
-        phone: '',
-        bloodGroup: 'Unknown',
-        emergencyContact: { name: '', relationship: '', phone: '' },
-        medicalHistory: '',
-        allergies: ''
-      });
-      
-      await fetchPatients();
-    } catch (err) {
-      console.error('Error registering patient:', {
-        message: err.message,
-        response: err.response?.data
-      });
-      alert('Error registering patient: ' + (err.response?.data?.message || err.message));
-    }
-  };
-
-  const handleLabRequest = async (e) => {
+  const handleRegisterStudent = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      console.log('Creating lab request:', {
-        patientId: selectedPatient.patientId,
-        ...labRequestForm
+      await axios.post(`${baseURL}/students`, registerForm, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       
-      const response = await axios.post(`${baseURL}/lab-request/`, {
-        patientId: selectedPatient.patientId,
-        ...labRequestForm
-      }, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('Lab request created:', response.data);
-      alert('Lab request created successfully');
-      
-      setShowLabRequestModal(false);
-      setLabRequestForm({ testType: '', testDetails: '', urgency: 'Normal' });
-      await fetchLabRequests();
+      alert('Student registered successfully!');
+      setShowRegisterModal(false);
+      resetRegisterForm();
+      fetchStudents();
     } catch (err) {
-      console.error('Error creating lab request:', {
-        message: err.message,
-        response: err.response?.data
-      });
-      alert('Error creating lab request: ' + (err.response?.data?.message || err.message));
+      alert('Error: ' + (err.response?.data?.message || err.message));
     }
   };
 
-  const handleRecordVitals = async (e) => {
+  const handleRecordVisit = async (e) => {
     e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      console.log('Recording vitals:', {
-        patientId: selectedPatient.patientId,
-        ...vitalsForm
-      });
-      
-      const response = await axios.post(`${baseURL}/patient-history/`, {
-        patientId: selectedPatient.patientId,
-        ...vitalsForm
-      }, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('Vitals recorded:', response.data);
-      alert('Vitals recorded successfully' + (vitalsForm.requiresDoctorAttention ? ' - Doctor has been notified' : ''));
-      
-      setShowVitalsModal(false);
-      setVitalsForm({
-        diagnosis: 'Vital Signs Check',
-        symptoms: '',
-        treatment: 'Routine monitoring',
-        vitals: {
-          bloodPressure: '',
-          temperature: '',
-          heartRate: '',
-          weight: '',
-          height: '',
-          oxygenSaturation: ''
-        },
-        notes: '',
-        requiresDoctorAttention: false,
-        severity: 'low'
-      });
-      
-      await fetchPatientDetails(selectedPatient.patientId);
-    } catch (err) {
-      console.error('Error recording vitals:', {
-        message: err.message,
-        response: err.response?.data
-      });
-      alert('Error recording vitals: ' + (err.response?.data?.message || err.message));
+    
+    if (!visitForm.treatmentDecision) {
+      alert('Please select a treatment decision');
+      return;
     }
-  };
 
-  const handleTriageAssessment = async (e) => {
-    e.preventDefault();
     try {
       const token = localStorage.getItem('token');
       
-      
-      const response = await axios.post(`${baseURL}/patient-history/`, {
-        patientId: selectedPatient.patientId,
-        diagnosis: 'Triage Assessment',
-        symptoms: triageForm.symptoms,
-        treatment: triageForm.initialTreatment || 'Assessment completed',
-        notes: triageForm.triageNotes,
-        requiresDoctorAttention: triageForm.requiresDoctorAttention,
-        severity: triageForm.severity,
-        vitals: {}
-      }, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const visitData = {
+        studentId: selectedStudent.studentId,
+        chiefComplaint: visitForm.chiefComplaint,
+        symptoms: visitForm.symptoms,
+        vitals: visitForm.vitals,
+        nurseAssessment: visitForm.nurseAssessment,
+        nurseNotes: visitForm.nurseNotes,
+        severity: visitForm.severity
+      };
+
+      if (visitForm.treatmentDecision === 'treat') {
+        visitData.nurseTreated = true;
+        visitData.nurseTreatment = {
+          ...visitForm.nurseTreatment,
+          treatedAt: new Date()
+        };
+        visitData.status = 'nurse_treated';
+      } else if (visitForm.treatmentDecision === 'lab') {
+        visitData.requiresLab = true;
+        visitData.labRequest = {
+          ...visitForm.labRequest,
+          requestedAt: new Date()
+        };
+        visitData.status = 'lab_pending';
+      } else if (visitForm.treatmentDecision === 'doctor') {
+        visitData.requiresDoctorReview = true;
+        visitData.status = 'doctor_review';
+      }
+
+      await axios.post(`${baseURL}/health-visits/`, visitData, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      
-      console.log('Triage assessment recorded:', response.data);
-      
-      const message = triageForm.requiresDoctorAttention 
-        ? 'Triage completed - Doctor has been notified for review'
-        : 'Triage completed - Patient cleared for nurse care';
-      
+
+      const message = visitForm.treatmentDecision === 'treat' 
+        ? 'Visit recorded and student treated!'
+        : visitForm.treatmentDecision === 'lab'
+        ? 'Visit recorded and lab technician notified!'
+        : 'Visit recorded and doctor notified!';
+
       alert(message);
-      
-      setShowTriageModal(false);
-      setTriageForm({
-        symptoms: '',
-        severity: 'low',
-        requiresDoctorAttention: false,
-        triageNotes: '',
-        initialTreatment: ''
-      });
-      
-      await fetchPatientDetails(selectedPatient.patientId);
+      setShowVisitModal(false);
+      resetVisitForm();
+      fetchStudentHistory(selectedStudent.studentId);
     } catch (err) {
-      console.error('Error recording triage:', {
-        message: err.message,
-        response: err.response?.data
-      });
-      alert('Error recording triage: ' + (err.response?.data?.message || err.message));
+      alert('Error: ' + (err.response?.data?.message || err.message));
     }
+  };
+
+  const resetRegisterForm = () => {
+    setRegisterForm({
+      fullName: '',
+      studentId: '',
+      grade: '',
+      section: '',
+      age: '',
+      gender: 'Male',
+      familyName: '',
+      bloodGroup: 'Unknown',
+      parentContact: {
+        fatherName: '',
+        fatherPhone: '',
+        motherName: '',
+        motherPhone: '',
+        guardianName: '',
+        guardianPhone: '',
+        emergencyPhone: ''
+      },
+      allergies: '',
+      chronicConditions: '',
+      currentMedications: ''
+    });
+  };
+
+  const resetVisitForm = () => {
+    setVisitForm({
+      chiefComplaint: '',
+      symptoms: '',
+      vitals: {
+        temperature: '',
+        bloodPressure: '',
+        heartRate: '',
+        weight: '',
+        height: '',
+        oxygenSaturation: ''
+      },
+      nurseAssessment: '',
+      nurseNotes: '',
+      severity: 'low',
+      treatmentDecision: '',
+      nurseTreatment: {
+        medicationGiven: '',
+        dosage: '',
+        instructions: '',
+        treatmentNotes: ''
+      },
+      labRequest: {
+        testType: '',
+        testDetails: '',
+        urgency: 'Normal'
+      }
+    });
   };
 
   const handleLogout = () => {
@@ -381,11 +259,21 @@ export default function NurseDashboard() {
     navigate('/');
   };
 
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = student.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         student.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         student.familyName.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (activeTab === 'all') return matchesSearch;
+    if (activeTab === 'grade') return matchesSearch;
+    return matchesSearch;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50 font-['Poppins']">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -394,11 +282,11 @@ export default function NurseDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-['Poppins']">
-     
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="bg-green-600 p-2.5 rounded-xl">
+            <div className="bg-teal-600 p-2.5 rounded-xl">
               <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1 16.93c-3.95-.49-7-3.85-7-7.84V6.3l6-2.25v14.88z"/>
               </svg>
@@ -410,10 +298,10 @@ export default function NurseDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={fetchPatients}
-              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-medium transition-colors"
+              onClick={() => setShowRegisterModal(true)}
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-medium transition-colors"
             >
-              Refresh
+              + Register Student
             </button>
             <button
               onClick={handleLogout}
@@ -426,230 +314,158 @@ export default function NurseDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              <div className="flex-1">
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-       
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <button
-            onClick={() => setShowPatientModal(true)}
-            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-3">
-              <div className="bg-green-100 p-3 rounded-xl">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-800 text-sm">Register Patient</h3>
-                <p className="text-xs text-gray-600">Add new patient</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => selectedPatient && setShowTriageModal(true)}
-            disabled={!selectedPatient}
-            className={`bg-white p-4 rounded-2xl shadow-sm transition-all ${
-              selectedPatient ? 'hover:shadow-md' : 'opacity-50 cursor-not-allowed'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="bg-yellow-100 p-3 rounded-xl">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-800 text-sm">Triage Assessment</h3>
-                <p className="text-xs text-gray-600">Initial evaluation</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => selectedPatient && setShowVitalsModal(true)}
-            disabled={!selectedPatient}
-            className={`bg-white p-4 rounded-2xl shadow-sm transition-all ${
-              selectedPatient ? 'hover:shadow-md' : 'opacity-50 cursor-not-allowed'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-100 p-3 rounded-xl">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-800 text-sm">Record Vitals</h3>
-                <p className="text-xs text-gray-600">Track patient vitals</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => selectedPatient && setShowLabRequestModal(true)}
-            disabled={!selectedPatient}
-            className={`bg-white p-4 rounded-2xl shadow-sm transition-all ${
-              selectedPatient ? 'hover:shadow-md' : 'opacity-50 cursor-not-allowed'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="bg-purple-100 p-3 rounded-xl">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-800 text-sm">Lab Request</h3>
-                <p className="text-xs text-gray-600">Request lab tests</p>
-              </div>
-            </div>
-          </button>
-        </div>
-
         <div className="grid grid-cols-12 gap-6">
-          
+          {/* Students List */}
           <div className="col-span-4 bg-white rounded-2xl shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-800">Patients ({patients.length})</h2>
-              <span className="text-xs text-gray-500">Total registered</span>
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-gray-800 mb-3">Students Directory</h2>
+              <input
+                type="text"
+                placeholder="Search by name, ID, or family..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+              />
             </div>
-            
-            {patients.length === 0 ? (
-              <div className="text-center py-12">
-                <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <p className="text-sm text-gray-500">No patients registered yet</p>
-                <p className="text-xs text-gray-400 mt-1">Click "Register Patient" to add one</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[calc(100vh-350px)] overflow-y-auto">
-                {patients.map((patient) => (
+
+            <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
+              {filteredStudents.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <p className="text-sm text-gray-500">No students found</p>
+                </div>
+              ) : (
+                filteredStudents.map((student) => (
                   <button
-                    key={patient._id}
-                    onClick={() => handlePatientSelect(patient)}
+                    key={student._id}
+                    onClick={() => handleStudentSelect(student)}
                     className={`w-full text-left p-3 rounded-xl transition-all ${
-                      selectedPatient?._id === patient._id
-                        ? 'bg-green-50 border-2 border-green-200'
+                      selectedStudent?._id === student._id
+                        ? 'bg-teal-50 border-2 border-teal-200'
                         : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-sm text-gray-800">{patient.fullName}</span>
-                      {patient.hospitalized && (
-                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-md">Hospitalized</span>
-                      )}
+                      <span className="font-medium text-sm text-gray-800">{student.fullName}</span>
+                      <span className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs rounded-md">
+                        Grade {student.grade}
+                      </span>
                     </div>
-                    <p className="text-xs text-gray-600">{patient.patientId}</p>
-                    <p className="text-xs text-gray-500 mt-1">{patient.age} yrs • {patient.gender}</p>
+                    <p className="text-xs text-gray-600">{student.studentId}</p>
+                    <p className="text-xs text-gray-500 mt-1">{student.age} yrs • {student.gender}</p>
+                    {student.allergies && (
+                      <div className="mt-2 px-2 py-1 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                        ⚠️ Allergies: {student.allergies}
+                      </div>
+                    )}
                   </button>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
 
-         
+          {/* Student Details */}
           <div className="col-span-8">
-            {selectedPatient ? (
+            {selectedStudent ? (
               <div className="space-y-6">
-               
+                {/* Student Info Card */}
                 <div className="bg-white rounded-2xl shadow-sm p-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-4">{selectedPatient.fullName}</h2>
-                  
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-800">{selectedStudent.fullName}</h2>
+                      <p className="text-sm text-gray-600">{selectedStudent.studentId}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowVisitModal(true)}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-medium transition-colors"
+                      >
+                        Record Visit
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4 mb-4">
+                    <div className="bg-gray-50 p-3 rounded-xl">
+                      <p className="text-xs text-gray-600 mb-1">Grade</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {selectedStudent.grade}{selectedStudent.section && `-${selectedStudent.section}`}
+                      </p>
+                    </div>
                     <div className="bg-gray-50 p-3 rounded-xl">
                       <p className="text-xs text-gray-600 mb-1">Age</p>
-                      <p className="text-sm font-medium text-gray-800">{selectedPatient.age} years</p>
+                      <p className="text-sm font-medium text-gray-800">{selectedStudent.age} years</p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-xl">
                       <p className="text-xs text-gray-600 mb-1">Gender</p>
-                      <p className="text-sm font-medium text-gray-800">{selectedPatient.gender}</p>
+                      <p className="text-sm font-medium text-gray-800">{selectedStudent.gender}</p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-xl">
                       <p className="text-xs text-gray-600 mb-1">Blood Group</p>
-                      <p className="text-sm font-medium text-gray-800">{selectedPatient.bloodGroup || 'N/A'}</p>
+                      <p className="text-sm font-medium text-gray-800">{selectedStudent.bloodGroup}</p>
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 p-4 rounded-xl mb-4">
-                    <p className="text-xs text-gray-600 mb-2">Medical History</p>
-                    <p className="text-sm text-gray-800">{selectedPatient.medicalHistory || 'No medical history recorded'}</p>
-                  </div>
+                  {selectedStudent.allergies && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded mb-4">
+                      <p className="text-sm font-semibold text-red-800">⚠️ Allergies: {selectedStudent.allergies}</p>
+                    </div>
+                  )}
 
-                  {selectedPatient.allergies && (
-                    <div className="bg-red-50 p-4 rounded-xl">
-                      <p className="text-xs text-red-600 font-medium mb-2">Allergies</p>
-                      <p className="text-sm text-red-800">{selectedPatient.allergies}</p>
+                  {selectedStudent.chronicConditions && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded mb-4">
+                      <p className="text-sm font-semibold text-yellow-800">Chronic: {selectedStudent.chronicConditions}</p>
+                    </div>
+                  )}
+
+                  {selectedStudent.currentMedications && (
+                    <div className="bg-teal-50 border-l-4 border-teal-500 p-4 rounded">
+                      <p className="text-sm font-semibold text-teal-800">Medications: {selectedStudent.currentMedications}</p>
                     </div>
                   )}
                 </div>
 
-               
+                {/* Recent Visits */}
                 <div className="bg-white rounded-2xl shadow-sm p-6">
-                  <h3 className="text-base font-semibold text-gray-800 mb-4">Recent Medical History</h3>
+                  <h3 className="text-base font-semibold text-gray-800 mb-4">Recent Health Visits</h3>
                   <div className="space-y-3">
-                    {medicalHistory.length > 0 ? (
-                      medicalHistory.slice(0, 5).map((record) => (
-                        <div key={record._id} className="bg-gray-50 p-4 rounded-xl">
+                    {medicalHistory.length === 0 ? (
+                      <p className="text-center text-gray-500 py-8 text-sm">No health visits recorded</p>
+                    ) : (
+                      medicalHistory.slice(0, 5).map((visit) => (
+                        <div key={visit._id} className="bg-gray-50 p-4 rounded-xl">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-sm text-gray-800">{record.diagnosis}</h4>
-                                {record.requiresDoctorAttention && (
-                                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-md">
-                                    Doctor Notified
-                                  </span>
-                                )}
-                                {record.severity && (
-                                  <span className={`px-2 py-0.5 text-xs rounded-md ${
-                                    record.severity === 'high' ? 'bg-red-100 text-red-700' :
-                                    record.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-green-100 text-green-700'
-                                  }`}>
-                                    {record.severity}
-                                  </span>
-                                )}
-                              </div>
-                              {record.symptoms && (
-                                <p className="text-xs text-gray-600 mt-1">Symptoms: {record.symptoms}</p>
-                              )}
+                              <h4 className="font-medium text-sm text-gray-800">{visit.chiefComplaint}</h4>
+                              <p className="text-xs text-gray-600 mt-1">{visit.symptoms}</p>
                             </div>
-                            <span className="text-xs text-gray-500">
-                              {new Date(record.createdAt).toLocaleDateString()}
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                visit.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                visit.status === 'nurse_treated' ? 'bg-teal-100 text-teal-700' :
+                                visit.status === 'lab_pending' ? 'bg-yellow-100 text-yellow-700' :
+                                visit.status === 'doctor_review' ? 'bg-purple-100 text-purple-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {visit.status.replace('_', ' ').toUpperCase()}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(visit.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
                           </div>
-                          {record.vitals && (
-                            <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
-                              {record.vitals.bloodPressure && (
-                                <div>BP: {record.vitals.bloodPressure}</div>
-                              )}
-                              {record.vitals.temperature && (
-                                <div>Temp: {record.vitals.temperature}</div>
-                              )}
-                              {record.vitals.heartRate && (
-                                <div>HR: {record.vitals.heartRate}</div>
-                              )}
+                          
+                          {visit.nurseTreated && visit.nurseTreatment && (
+                            <div className="mt-3 pt-3 border-t border-gray-200">
+                              <p className="text-xs text-gray-600">
+                                <span className="font-medium">Treatment:</span> {visit.nurseTreatment.medicationGiven}
+                              </p>
                             </div>
                           )}
                         </div>
                       ))
-                    ) : (
-                      <p className="text-center text-gray-500 py-8">No medical history available</p>
                     )}
                   </div>
                 </div>
@@ -657,58 +473,67 @@ export default function NurseDashboard() {
             ) : (
               <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
                 <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
-                <p className="text-gray-500">Select a patient to view details</p>
+                <p className="text-gray-500">Select a student to view details</p>
               </div>
             )}
           </div>
         </div>
-
-        
-        <div className="mt-6 bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">Recent Lab Requests</h2>
-          {labRequests.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">No lab requests yet</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
-              {labRequests.slice(0, 6).map((request) => (
-                <div key={request._id} className="bg-gray-50 p-4 rounded-xl">
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-medium text-sm text-gray-800">{request.testType}</h4>
-                    <span className={`px-2 py-0.5 text-xs rounded-md ${
-                      request.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      request.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {request.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600">Patient ID: {request.patientId}</p>
-                  <p className="text-xs text-gray-500 mt-1">{request.urgency} priority</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
-      {showPatientModal && (
+      {/* Register Student Modal */}
+      {showRegisterModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">Register New Patient</h2>
+              <h2 className="text-lg font-semibold text-gray-800">Register New Student</h2>
             </div>
-            <form onSubmit={handleRegisterPatient} className="p-6 space-y-4">
+            <form onSubmit={handleRegisterStudent} className="p-6 space-y-4">
+              {/* Basic Information */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                   <input
                     type="text"
                     required
-                    value={patientForm.fullName}
-                    onChange={(e) => setPatientForm({...patientForm, fullName: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
+                    value={registerForm.fullName}
+                    onChange={(e) => setRegisterForm({...registerForm, fullName: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Student ID *</label>
+                  <input
+                    type="text"
+                    required
+                    value={registerForm.studentId}
+                    onChange={(e) => setRegisterForm({...registerForm, studentId: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., 5, 10, 12"
+                    value={registerForm.grade}
+                    onChange={(e) => setRegisterForm({...registerForm, grade: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., A, B"
+                    value={registerForm.section}
+                    onChange={(e) => setRegisterForm({...registerForm, section: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -716,34 +541,42 @@ export default function NurseDashboard() {
                   <input
                     type="number"
                     required
-                    value={patientForm.age}
-                    onChange={(e) => setPatientForm({...patientForm, age: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
+                    value={registerForm.age}
+                    onChange={(e) => setRegisterForm({...registerForm, age: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
                   <select
                     required
-                    value={patientForm.gender}
-                    onChange={(e) => setPatientForm({...patientForm, gender: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
+                    value={registerForm.gender}
+                    onChange={(e) => setRegisterForm({...registerForm, gender: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   >
-                    <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
-                    <option value="Other">Other</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Family Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={registerForm.familyName}
+                    onChange={(e) => setRegisterForm({...registerForm, familyName: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
                   <select
-                    value={patientForm.bloodGroup}
-                    onChange={(e) => setPatientForm({...patientForm, bloodGroup: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
+                    value={registerForm.bloodGroup}
+                    onChange={(e) => setRegisterForm({...registerForm, bloodGroup: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   >
                     <option value="Unknown">Unknown</option>
                     <option value="A+">A+</option>
@@ -758,97 +591,127 @@ export default function NurseDashboard() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                <input
-                  type="tel"
-                  required
-                  value={patientForm.phone}
-                  onChange={(e) => setPatientForm({...patientForm, phone: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
-                <textarea
-                  required
-                  value={patientForm.address}
-                  onChange={(e) => setPatientForm({...patientForm, address: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Medical History</label>
-                <textarea
-                  value={patientForm.medicalHistory}
-                  onChange={(e) => setPatientForm({...patientForm, medicalHistory: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Allergies</label>
-                <input
-                  type="text"
-                  value={patientForm.allergies}
-                  onChange={(e) => setPatientForm({...patientForm, allergies: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                />
-              </div>
-
+              {/* Parent Contact */}
               <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Emergency Contact</h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    value={patientForm.emergencyContact.name}
-                    onChange={(e) => setPatientForm({
-                      ...patientForm,
-                      emergencyContact: {...patientForm.emergencyContact, name: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Relationship"
-                    value={patientForm.emergencyContact.relationship}
-                    onChange={(e) => setPatientForm({
-                      ...patientForm,
-                      emergencyContact: {...patientForm.emergencyContact, relationship: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone"
-                    value={patientForm.emergencyContact.phone}
-                    onChange={(e) => setPatientForm({
-                      ...patientForm,
-                      emergencyContact: {...patientForm.emergencyContact, phone: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  />
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Parent/Guardian Contact</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Father's Name</label>
+                    <input
+                      type="text"
+                      value={registerForm.parentContact.fatherName}
+                      onChange={(e) => setRegisterForm({
+                        ...registerForm,
+                        parentContact: {...registerForm.parentContact, fatherName: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Father's Phone</label>
+                    <input
+                      type="tel"
+                      value={registerForm.parentContact.fatherPhone}
+                      onChange={(e) => setRegisterForm({
+                        ...registerForm,
+                        parentContact: {...registerForm.parentContact, fatherPhone: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Mother's Name</label>
+                    <input
+                      type="text"
+                      value={registerForm.parentContact.motherName}
+                      onChange={(e) => setRegisterForm({
+                        ...registerForm,
+                        parentContact: {...registerForm.parentContact, motherName: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Mother's Phone</label>
+                    <input
+                      type="tel"
+                      value={registerForm.parentContact.motherPhone}
+                      onChange={(e) => setRegisterForm({
+                        ...registerForm,
+                        parentContact: {...registerForm.parentContact, motherPhone: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Emergency Phone *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={registerForm.parentContact.emergencyPhone}
+                      onChange={(e) => setRegisterForm({
+                        ...registerForm,
+                        parentContact: {...registerForm.parentContact, emergencyPhone: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Medical Information */}
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Medical Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Known Allergies</label>
+                    <textarea
+                      value={registerForm.allergies}
+                      onChange={(e) => setRegisterForm({...registerForm, allergies: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                      rows={2}
+                      placeholder="e.g., Penicillin, Peanuts, etc."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Chronic Conditions</label>
+                    <textarea
+                      value={registerForm.chronicConditions}
+                      onChange={(e) => setRegisterForm({...registerForm, chronicConditions: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                      rows={2}
+                      placeholder="e.g., Asthma, Diabetes, etc."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Current Medications</label>
+                    <textarea
+                      value={registerForm.currentMedications}
+                      onChange={(e) => setRegisterForm({...registerForm, currentMedications: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                      rows={2}
+                      placeholder="List any medications student is currently taking"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowPatientModal(false)}
+                  onClick={() => {
+                    setShowRegisterModal(false);
+                    resetRegisterForm();
+                  }}
                   className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium transition-colors"
                 >
-                  Register Patient
+                  Register Student
                 </button>
               </div>
             </form>
@@ -856,88 +719,256 @@ export default function NurseDashboard() {
         </div>
       )}
 
-      
-      {showTriageModal && (
+      {/* Record Visit Modal */}
+      {showVisitModal && selectedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">Triage Assessment</h2>
-              <p className="text-sm text-gray-600 mt-1">Patient: {selectedPatient?.fullName}</p>
+              <h2 className="text-lg font-semibold text-gray-800">Record Health Visit</h2>
+              <p className="text-sm text-gray-600 mt-1">{selectedStudent.fullName} • Grade {selectedStudent.grade}</p>
             </div>
-            <form onSubmit={handleTriageAssessment} className="p-6 space-y-4">
+            <form onSubmit={handleRecordVisit} className="p-6 space-y-4">
+              {/* Chief Complaint & Symptoms */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Chief Complaint *</label>
+                <input
+                  type="text"
+                  required
+                  value={visitForm.chiefComplaint}
+                  onChange={(e) => setVisitForm({...visitForm, chiefComplaint: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                  placeholder="Main reason for visit"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Symptoms *</label>
                 <textarea
                   required
-                  value={triageForm.symptoms}
-                  onChange={(e) => setTriageForm({...triageForm, symptoms: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-600 focus:border-transparent"
+                  value={visitForm.symptoms}
+                  onChange={(e) => setVisitForm({...visitForm, symptoms: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                   rows={3}
-                  placeholder="Describe patient's symptoms..."
+                  placeholder="Describe symptoms in detail..."
+                />
+              </div>
+
+              {/* Vitals */}
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Vital Signs</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Temperature</label>
+                    <input
+                      type="text"
+                      placeholder="98.6°F"
+                      value={visitForm.vitals.temperature}
+                      onChange={(e) => setVisitForm({
+                        ...visitForm,
+                        vitals: {...visitForm.vitals, temperature: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Blood Pressure</label>
+                    <input
+                      type="text"
+                      placeholder="120/80"
+                      value={visitForm.vitals.bloodPressure}
+                      onChange={(e) => setVisitForm({
+                        ...visitForm,
+                        vitals: {...visitForm.vitals, bloodPressure: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Heart Rate</label>
+                    <input
+                      type="text"
+                      placeholder="72 bpm"
+                      value={visitForm.vitals.heartRate}
+                      onChange={(e) => setVisitForm({
+                        ...visitForm,
+                        vitals: {...visitForm.vitals, heartRate: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Assessment & Severity */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nurse Assessment</label>
+                <textarea
+                  value={visitForm.nurseAssessment}
+                  onChange={(e) => setVisitForm({...visitForm, nurseAssessment: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                  rows={2}
+                  placeholder="Your clinical assessment..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Severity Level *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
                 <select
-                  required
-                  value={triageForm.severity}
-                  onChange={(e) => setTriageForm({...triageForm, severity: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-600 focus:border-transparent"
+                  value={visitForm.severity}
+                  onChange={(e) => setVisitForm({...visitForm, severity: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
                 >
-                  <option value="low">Low - Minor symptoms</option>
-                  <option value="medium">Medium - Moderate symptoms</option>
-                  <option value="high">High - Severe symptoms</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Initial Treatment Plan</label>
-                <textarea
-                  value={triageForm.initialTreatment}
-                  onChange={(e) => setTriageForm({...triageForm, initialTreatment: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-600 focus:border-transparent"
-                  rows={2}
-                  placeholder="Immediate actions taken or planned..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Triage Notes</label>
-                <textarea
-                  value={triageForm.triageNotes}
-                  onChange={(e) => setTriageForm({...triageForm, triageNotes: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-600 focus:border-transparent"
-                  rows={2}
-                  placeholder="Additional observations..."
-                />
-              </div>
-
-              <div className="bg-yellow-50 p-4 rounded-xl">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={triageForm.requiresDoctorAttention}
-                    onChange={(e) => setTriageForm({...triageForm, requiresDoctorAttention: e.target.checked})}
-                    className="w-5 h-5 text-yellow-600 border-gray-300 rounded focus:ring-yellow-600"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-800">Requires Doctor Attention</span>
-                    <p className="text-xs text-gray-600">Check this to notify doctors about this patient</p>
-                  </div>
-                </label>
-              </div>
-
-              {triageForm.requiresDoctorAttention && (
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-orange-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
+              {/* Treatment Decision */}
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Treatment Decision *</h3>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="treatmentDecision"
+                      value="treat"
+                      checked={visitForm.treatmentDecision === 'treat'}
+                      onChange={(e) => setVisitForm({...visitForm, treatmentDecision: e.target.value})}
+                      className="mt-1 w-4 h-4 text-teal-600"
+                    />
                     <div>
-                      <p className="text-sm font-medium text-orange-800">Doctor will be notified</p>
-                      <p className="text-xs text-orange-700 mt-1">Available doctors will receive a notification to review this patient</p>
+                      <p className="font-medium text-sm text-gray-800">I can treat the student</p>
+                      <p className="text-xs text-gray-600">Provide medication and mark as treated</p>
                     </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="treatmentDecision"
+                      value="lab"
+                      checked={visitForm.treatmentDecision === 'lab'}
+                      onChange={(e) => setVisitForm({...visitForm, treatmentDecision: e.target.value})}
+                      className="mt-1 w-4 h-4 text-teal-600"
+                    />
+                    <div>
+                      <p className="font-medium text-sm text-gray-800">Send to Lab Technician</p>
+                      <p className="text-xs text-gray-600">Request laboratory tests</p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="treatmentDecision"
+                      value="doctor"
+                      checked={visitForm.treatmentDecision === 'doctor'}
+                      onChange={(e) => setVisitForm({...visitForm, treatmentDecision: e.target.value})}
+                      className="mt-1 w-4 h-4 text-teal-600"
+                    />
+                    <div>
+                      <p className="font-medium text-sm text-gray-800">Send to Doctor</p>
+                      <p className="text-xs text-gray-600">Requires doctor's review</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Conditional Forms */}
+              {visitForm.treatmentDecision === 'treat' && (
+                <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 space-y-3">
+                  <h4 className="font-semibold text-sm text-gray-800">Treatment Details</h4>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Medication Given *</label>
+                    <input
+                      type="text"
+                      required
+                      value={visitForm.nurseTreatment.medicationGiven}
+                      onChange={(e) => setVisitForm({
+                        ...visitForm,
+                        nurseTreatment: {...visitForm.nurseTreatment, medicationGiven: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Dosage</label>
+                      <input
+                        type="text"
+                        value={visitForm.nurseTreatment.dosage}
+                        onChange={(e) => setVisitForm({
+                          ...visitForm,
+                          nurseTreatment: {...visitForm.nurseTreatment, dosage: e.target.value}
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Instructions</label>
+                      <input
+                        type="text"
+                        value={visitForm.nurseTreatment.instructions}
+                        onChange={(e) => setVisitForm({
+                          ...visitForm,
+                          nurseTreatment: {...visitForm.nurseTreatment, instructions: e.target.value}
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {visitForm.treatmentDecision === 'lab' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 space-y-3">
+                  <h4 className="font-semibold text-sm text-gray-800">Lab Test Request</h4>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Test Type *</label>
+                    <select
+                      required
+                      value={visitForm.labRequest.testType}
+                      onChange={(e) => setVisitForm({
+                        ...visitForm,
+                        labRequest: {...visitForm.labRequest, testType: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    >
+                      <option value="">Select test type</option>
+                      <option value="Blood Test">Blood Test</option>
+                      <option value="Urine Test">Urine Test</option>
+                      <option value="Vision Test">Vision Test</option>
+                      <option value="Hearing Test">Hearing Test</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Test Details</label>
+                    <textarea
+                      value={visitForm.labRequest.testDetails}
+                      onChange={(e) => setVisitForm({
+                        ...visitForm,
+                        labRequest: {...visitForm.labRequest, testDetails: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                      rows={2}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Urgency</label>
+                    <select
+                      value={visitForm.labRequest.urgency}
+                      onChange={(e) => setVisitForm({
+                        ...visitForm,
+                        labRequest: {...visitForm.labRequest, urgency: e.target.value}
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-600 focus:border-transparent"
+                    >
+                      <option value="Normal">Normal</option>
+                      <option value="Urgent">Urgent</option>
+                      <option value="Emergency">Emergency</option>
+                    </select>
                   </div>
                 </div>
               )}
@@ -945,253 +976,19 @@ export default function NurseDashboard() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowTriageModal(false)}
+                  onClick={() => {
+                    setShowVisitModal(false);
+                    resetVisitForm();
+                  }}
                   className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium transition-colors"
                 >
-                  Complete Triage
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-     
-      {showLabRequestModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">Request Lab Test</h2>
-            </div>
-            <form onSubmit={handleLabRequest} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Type *</label>
-                <select
-                  required
-                  value={labRequestForm.testType}
-                  onChange={(e) => setLabRequestForm({...labRequestForm, testType: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                >
-                  <option value="">Select test type</option>
-                  <option value="Blood Test">Blood Test</option>
-                  <option value="Urine Test">Urine Test</option>
-                  <option value="X-Ray">X-Ray</option>
-                  <option value="CT Scan">CT Scan</option>
-                  <option value="MRI">MRI</option>
-                  <option value="Ultrasound">Ultrasound</option>
-                  <option value="ECG">ECG</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Details</label>
-                <textarea
-                  value={labRequestForm.testDetails}
-                  onChange={(e) => setLabRequestForm({...labRequestForm, testDetails: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  rows={3}
-                  placeholder="Additional details about the test..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Urgency *</label>
-                <select
-                  required
-                  value={labRequestForm.urgency}
-                  onChange={(e) => setLabRequestForm({...labRequestForm, urgency: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                >
-                  <option value="Normal">Normal</option>
-                  <option value="Urgent">Urgent</option>
-                  <option value="Emergency">Emergency</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowLabRequestModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors"
-                >
-                  Submit Request
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Record Vitals Modal */}
-      {showVitalsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">Record Patient Vitals</h2>
-            </div>
-            <form onSubmit={handleRecordVitals} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Blood Pressure</label>
-                  <input
-                    type="text"
-                    placeholder="120/80"
-                    value={vitalsForm.vitals.bloodPressure}
-                    onChange={(e) => setVitalsForm({
-                      ...vitalsForm,
-                      vitals: {...vitalsForm.vitals, bloodPressure: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
-                  <input
-                    type="text"
-                    placeholder="98.6°F"
-                    value={vitalsForm.vitals.temperature}
-                    onChange={(e) => setVitalsForm({
-                      ...vitalsForm,
-                      vitals: {...vitalsForm.vitals, temperature: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Heart Rate</label>
-                  <input
-                    type="text"
-                    placeholder="72 bpm"
-                    value={vitalsForm.vitals.heartRate}
-                    onChange={(e) => setVitalsForm({
-                      ...vitalsForm,
-                      vitals: {...vitalsForm.vitals, heartRate: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">O2 Saturation</label>
-                  <input
-                    type="text"
-                    placeholder="98%"
-                    value={vitalsForm.vitals.oxygenSaturation}
-                    onChange={(e) => setVitalsForm({
-                      ...vitalsForm,
-                      vitals: {...vitalsForm.vitals, oxygenSaturation: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight</label>
-                  <input
-                    type="text"
-                    placeholder="70 kg"
-                    value={vitalsForm.vitals.weight}
-                    onChange={(e) => setVitalsForm({
-                      ...vitalsForm,
-                      vitals: {...vitalsForm.vitals, weight: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Height</label>
-                  <input
-                    type="text"
-                    placeholder="170 cm"
-                    value={vitalsForm.vitals.height}
-                    onChange={(e) => setVitalsForm({
-                      ...vitalsForm,
-                      vitals: {...vitalsForm.vitals, height: e.target.value}
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Symptoms</label>
-                <textarea
-                  value={vitalsForm.symptoms}
-                  onChange={(e) => setVitalsForm({...vitalsForm, symptoms: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  rows={2}
-                  placeholder="Patient complaints or observations..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={vitalsForm.notes}
-                  onChange={(e) => setVitalsForm({...vitalsForm, notes: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  rows={2}
-                  placeholder="Additional observations..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Severity Assessment</label>
-                <select
-                  value={vitalsForm.severity}
-                  onChange={(e) => setVitalsForm({...vitalsForm, severity: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                >
-                  <option value="low">Low - Stable condition</option>
-                  <option value="medium">Medium - Monitoring needed</option>
-                  <option value="high">High - Immediate attention</option>
-                </select>
-              </div>
-
-              <div className="bg-blue-50 p-4 rounded-xl">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={vitalsForm.requiresDoctorAttention}
-                    onChange={(e) => setVitalsForm({...vitalsForm, requiresDoctorAttention: e.target.checked})}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-600"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-800">Notify Doctor</span>
-                    <p className="text-xs text-gray-600">Check if this patient needs doctor's review</p>
-                  </div>
-                </label>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowVitalsModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
-                >
-                  Save Vitals
+                  Record Visit
                 </button>
               </div>
             </form>

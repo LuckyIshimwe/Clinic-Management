@@ -126,6 +126,7 @@ export default function Register() {
       };
       
       console.log('Sending data:', dataWithRole);
+      console.log('Base URL:', baseURL);
       
       const res = await axios.post(`${baseURL}/user/register`, dataWithRole);
       
