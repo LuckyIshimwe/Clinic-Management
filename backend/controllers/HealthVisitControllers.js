@@ -2,7 +2,9 @@ const HealthVisit = require("../models/HealthVisit");
 const Student = require("../models/Student");
 const Notification = require("../models/Notification");
 
-// Helper function to create notification
+
+const DEFAULT_SCHOOL_ID = "SCHOOL001";
+
 const createNotification = async (userId, title, message, type, patientId, severity) => {
   try {
     await Notification.create({
@@ -17,7 +19,6 @@ const createNotification = async (userId, title, message, type, patientId, sever
     console.error("Error creating notification:", error);
   }
 };
-
 
 const createHealthVisit = async (req, res) => {
   try {
@@ -37,12 +38,15 @@ const createHealthVisit = async (req, res) => {
     } = req.body;
 
     
-    const student = await Student.findOne({ studentId, schoolId: "SCHOOL001" });
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+
+   
+    const student = await Student.findOne({ studentId, schoolId });
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // Determine status based on treatment decision
+    
     let status = 'pending';
     if (nurseTreated) {
       status = 'nurse_treated';
@@ -52,7 +56,7 @@ const createHealthVisit = async (req, res) => {
       status = 'doctor_review';
     }
 
-    // Create health visit
+    
     const visit = await HealthVisit.create({
       studentId: student.studentId,
       chiefComplaint,
@@ -70,17 +74,15 @@ const createHealthVisit = async (req, res) => {
       attendedBy: {
         nurse: req.user._id
       },
-      schoolId: "SCHOOL001"
+      schoolId
     });
 
-    // Populate visit with student details for notifications
     const populatedVisit = await HealthVisit.findById(visit._id);
 
-    // Send notifications based on status
+    
     if (requiresLab) {
-      // Notify lab technicians
       const User = require("../models/User");
-      const labTechs = await User.find({ role: "lab_technician", schoolId: "SCHOOL001" });
+      const labTechs = await User.find({ role: "lab_technician" });
       
       for (const tech of labTechs) {
         await createNotification(
@@ -94,10 +96,10 @@ const createHealthVisit = async (req, res) => {
       }
     }
 
+   
     if (requiresDoctorReview) {
-      // Notify doctors
       const User = require("../models/User");
-      const doctors = await User.find({ role: "doctor", schoolId: "SCHOOL001" });
+      const doctors = await User.find({ role: "doctor" });
       
       for (const doctor of doctors) {
         await createNotification(
@@ -114,7 +116,7 @@ const createHealthVisit = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Health visit recorded successfully",
-      visit
+      visit: populatedVisit
     });
   } catch (error) {
     console.error("Error creating health visit:", error);
@@ -122,41 +124,48 @@ const createHealthVisit = async (req, res) => {
   }
 };
 
-// @desc    Get all health visits for a student
-// @route   GET /api/health-visits/student/:studentId
-// @access  Private
 const getHealthVisitsByStudent = async (req, res) => {
   try {
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
     const visits = await HealthVisit.find({
       studentId: req.params.studentId,
-      schoolId: "SCHOOL001"
+      schoolId
     })
     .populate('attendedBy.nurse', 'name')
     .populate('attendedBy.labTech', 'name')
     .populate('attendedBy.doctor', 'name')
     .sort({ createdAt: -1 });
 
-    res.status(200).json(visits);
+    res.status(200).json({
+      success: true,
+      visits
+    });
   } catch (error) {
     console.error("Error fetching health visits:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Update health visit
-// @route   PUT /api/health-visits/:id
-// @access  Private
 const updateHealthVisit = async (req, res) => {
   try {
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
+    
+    const existingVisit = await HealthVisit.findOne({
+      _id: req.params.id,
+      schoolId
+    });
+
+    if (!existingVisit) {
+      return res.status(404).json({ message: "Health visit not found" });
+    }
+
     const visit = await HealthVisit.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
     );
-
-    if (!visit) {
-      return res.status(404).json({ message: "Health visit not found" });
-    }
 
     res.status(200).json({
       success: true,
@@ -169,15 +178,14 @@ const updateHealthVisit = async (req, res) => {
   }
 };
 
-// @desc    Get pending lab tests
-// @route   GET /api/health-visits/lab/pending
-// @access  Private (Lab Technician)
 const getLabPendingVisits = async (req, res) => {
   try {
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
     const visits = await HealthVisit.aggregate([
       {
         $match: {
-          schoolId: "SCHOOL001",
+          schoolId,
           requiresLab: true,
           status: 'lab_pending'
         }
@@ -192,6 +200,11 @@ const getLabPendingVisits = async (req, res) => {
       },
       {
         $unwind: '$studentInfo'
+      },
+      {
+        $match: {
+          'studentInfo.schoolId': schoolId
+        }
       },
       {
         $project: {
@@ -217,22 +230,24 @@ const getLabPendingVisits = async (req, res) => {
       }
     ]);
 
-    res.status(200).json(visits);
+    res.status(200).json({
+      success: true,
+      visits
+    });
   } catch (error) {
     console.error("Error fetching pending lab tests:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get completed lab tests
-// @route   GET /api/health-visits/lab/completed
-// @access  Private (Lab Technician)
 const getLabCompletedVisits = async (req, res) => {
   try {
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
     const visits = await HealthVisit.aggregate([
       {
         $match: {
-          schoolId: "SCHOOL001",
+          schoolId,
           requiresLab: true,
           status: { $in: ['lab_completed', 'doctor_review', 'completed'] }
         }
@@ -247,6 +262,11 @@ const getLabCompletedVisits = async (req, res) => {
       },
       {
         $unwind: '$studentInfo'
+      },
+      {
+        $match: {
+          'studentInfo.schoolId': schoolId
+        }
       },
       {
         $project: {
@@ -274,19 +294,29 @@ const getLabCompletedVisits = async (req, res) => {
       }
     ]);
 
-    res.status(200).json(visits);
+    res.status(200).json({
+      success: true,
+      visits
+    });
   } catch (error) {
     console.error("Error fetching completed lab tests:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Submit lab results
-// @route   PUT /api/health-visits/:id/lab-results
-// @access  Private (Lab Technician)
 const submitLabResults = async (req, res) => {
   try {
     const { labResults, status, requiresDoctorReview } = req.body;
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+
+    const existingVisit = await HealthVisit.findOne({
+      _id: req.params.id,
+      schoolId
+    });
+
+    if (!existingVisit) {
+      return res.status(404).json({ message: "Health visit not found" });
+    }
 
     const visit = await HealthVisit.findByIdAndUpdate(
       req.params.id,
@@ -303,14 +333,13 @@ const submitLabResults = async (req, res) => {
       { new: true }
     );
 
-    if (!visit) {
-      return res.status(404).json({ message: "Health visit not found" });
-    }
+   
+    const student = await Student.findOne({ 
+      studentId: visit.studentId,
+      schoolId 
+    });
 
-    // Get student details
-    const student = await Student.findOne({ studentId: visit.studentId });
-
-    // Notify nurse
+    
     const User = require("../models/User");
     if (visit.attendedBy.nurse) {
       await createNotification(
@@ -323,9 +352,9 @@ const submitLabResults = async (req, res) => {
       );
     }
 
-    // If critical or abnormal, notify doctors
+  
     if (requiresDoctorReview || labResults.criticalValues || labResults.abnormalFindings) {
-      const doctors = await User.find({ role: "doctor", schoolId: "SCHOOL001" });
+      const doctors = await User.find({ role: "doctor" });
       
       const severity = labResults.criticalValues ? 'high' : 'medium';
       const message = labResults.criticalValues 
@@ -355,15 +384,14 @@ const submitLabResults = async (req, res) => {
   }
 };
 
-// @desc    Get pending doctor reviews
-// @route   GET /api/health-visits/doctor/pending
-// @access  Private (Doctor)
 const getDoctorPendingReviews = async (req, res) => {
   try {
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
     const visits = await HealthVisit.aggregate([
       {
         $match: {
-          schoolId: "SCHOOL001",
+          schoolId,
           requiresDoctorReview: true,
           status: 'doctor_review'
         }
@@ -378,6 +406,11 @@ const getDoctorPendingReviews = async (req, res) => {
       },
       {
         $unwind: '$studentInfo'
+      },
+      {
+        $match: {
+          'studentInfo.schoolId': schoolId
+        }
       },
       {
         $project: {
@@ -409,16 +442,16 @@ const getDoctorPendingReviews = async (req, res) => {
       }
     ]);
 
-    res.status(200).json(visits);
+    res.status(200).json({
+      success: true,
+      visits
+    });
   } catch (error) {
     console.error("Error fetching pending doctor reviews:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Submit doctor review
-// @route   PUT /api/health-visits/:id/doctor-review
-// @access  Private (Doctor)
 const submitDoctorReview = async (req, res) => {
   try {
     const {
@@ -432,6 +465,18 @@ const submitDoctorReview = async (req, res) => {
       hospitalizationDetails,
       status
     } = req.body;
+
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+
+  
+    const existingVisit = await HealthVisit.findOne({
+      _id: req.params.id,
+      schoolId
+    });
+
+    if (!existingVisit) {
+      return res.status(404).json({ message: "Health visit not found" });
+    }
 
     const visit = await HealthVisit.findByIdAndUpdate(
       req.params.id,
@@ -450,14 +495,13 @@ const submitDoctorReview = async (req, res) => {
       { new: true }
     );
 
-    if (!visit) {
-      return res.status(404).json({ message: "Health visit not found" });
-    }
+    
+    const student = await Student.findOne({ 
+      studentId: visit.studentId,
+      schoolId 
+    });
 
-    // Get student details
-    const student = await Student.findOne({ studentId: visit.studentId });
-
-    // Notify nurse
+    
     const User = require("../models/User");
     if (visit.attendedBy.nurse) {
       let message = `Doctor has reviewed ${student.fullName} (${student.studentId})`;
@@ -488,19 +532,21 @@ const submitDoctorReview = async (req, res) => {
   }
 };
 
-// @desc    Get all visits (admin/doctor)
-// @route   GET /api/health-visits/all
-// @access  Private (Doctor, Admin)
 const getAllVisits = async (req, res) => {
   try {
-    const visits = await HealthVisit.find({ schoolId: "SCHOOL001" })
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
+    const visits = await HealthVisit.find({ schoolId })
       .populate('attendedBy.nurse', 'name')
       .populate('attendedBy.labTech', 'name')
       .populate('attendedBy.doctor', 'name')
       .sort({ createdAt: -1 })
       .limit(100);
 
-    res.status(200).json(visits);
+    res.status(200).json({
+      success: true,
+      visits
+    });
   } catch (error) {
     console.error("Error fetching all visits:", error);
     res.status(500).json({ message: error.message });

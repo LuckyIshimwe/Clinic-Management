@@ -22,7 +22,7 @@ exports.registerUser = async (req, res) => {
     const { staffId, name, email, password, clinicId, specialization, role } = req.body;
 
    
-    if (!staffId || !name || !email || !password || !clinicId || !role) {
+    if (!staffId || !name || !email || !password || !clinicId || !role ) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -54,7 +54,8 @@ exports.registerUser = async (req, res) => {
       password: hashedPassword,
       clinicId,
       role,
-      specialization: role === 'doctor' ? specialization : undefined
+      specialization: role === 'doctor' ? specialization : undefined,
+      // schoolId: schoolId || "SCHOOL001"
     });
 
     res.status(201).json({

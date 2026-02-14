@@ -24,13 +24,13 @@ const userSchema = new mongoose.Schema({
   },
   role: { 
     type: String, 
-    enum: ['admin', 'doctor', 'nurse', 'lab_technician'], 
+    enum: ['admin', 'doctor', 'nurse', 'labtechnician'], 
     required: true 
   },
-  schoolId: {
-    type: String,
-    required: true
-  },
+  // schoolId: {
+  //   type: String,
+  //   required: true
+  // },
   specialization: String,
   phone: String,
   isActive: {

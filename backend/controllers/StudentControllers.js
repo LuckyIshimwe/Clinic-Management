@@ -1,10 +1,9 @@
 const Student = require("../models/Student");
 const csv = require('csv-parser');
 const fs = require('fs');
-const multer = require('multer');
 
-const upload = multer({ dest: 'uploads/' });
 
+const DEFAULT_SCHOOL_ID = "SCHOOL001";
 
 const registerStudent = async (req, res) => {
   try {
@@ -25,11 +24,11 @@ const registerStudent = async (req, res) => {
       allergies,
       chronicConditions,
       currentMedications,
-      status,
-      schoolId,
-      registeredBy
+      status
     } = req.body;
 
+   
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
     
     if (!fullName || !studentId || !grade || !age || !gender || !familyName) {
       console.log("Missing required fields");
@@ -40,18 +39,16 @@ const registerStudent = async (req, res) => {
       });
     }
 
-    
-    console.log("Checking for existing student with ID:", studentId);
-    const existingStudent = await Student.findOne({ studentId });
+    console.log("Checking for existing student with ID:", studentId, "in school:", schoolId);
+    const existingStudent = await Student.findOne({ studentId, schoolId });
     
     if (existingStudent) {
       console.log("Student already exists:", existingStudent);
       return res.status(400).json({ 
         success: false,
-        message: "Student ID already exists" 
+        message: "Student ID already exists in your school" 
       });
     }
-
 
     const studentData = {
       fullName,
@@ -67,13 +64,12 @@ const registerStudent = async (req, res) => {
       chronicConditions: chronicConditions || "",
       currentMedications: currentMedications || "",
       status: status || "Active",
-      schoolId: schoolId || "SCHOOL001",
-      registeredBy: registeredBy || req.user?._id
+      schoolId,
+      registeredBy: req.user._id
     };
 
     console.log("Attempting to create student with data:", JSON.stringify(studentData, null, 2));
 
-  
     const student = await Student.create(studentData);
 
     console.log("Student created successfully:", student);
@@ -91,7 +87,6 @@ const registerStudent = async (req, res) => {
     console.error("Error message:", error.message);
     console.error("Full error:", error);
     
-   
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({ 
@@ -101,7 +96,6 @@ const registerStudent = async (req, res) => {
       });
     }
 
-    
     if (error.code === 11000) {
       return res.status(400).json({ 
         success: false,
@@ -117,15 +111,11 @@ const registerStudent = async (req, res) => {
   }
 };
 
-
 const getStudents = async (req, res) => {
   try {
     console.log("Fetching students...");
-
-    const schoolId =
-      req.query.schoolId ||
-      req.user?.schoolId ||
-      "SCHOOL001";
+    
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
 
     const students = await Student.find({
       schoolId,
@@ -146,13 +136,13 @@ const getStudents = async (req, res) => {
   }
 };
 
-
-
 const getStudent = async (req, res) => {
   try {
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
     const student = await Student.findOne({
       studentId: req.params.studentId,
-      schoolId: req.query.schoolId || "SCHOOL001"
+      schoolId
     });
 
     if (!student) {
@@ -175,13 +165,14 @@ const getStudent = async (req, res) => {
   }
 };
 
-
 const updateStudent = async (req, res) => {
   try {
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
     const student = await Student.findOneAndUpdate(
       { 
         studentId: req.params.studentId,
-        schoolId: req.body.schoolId || "SCHOOL001"
+        schoolId
       },
       req.body,
       { new: true, runValidators: true }
@@ -208,13 +199,14 @@ const updateStudent = async (req, res) => {
   }
 };
 
-
 const deleteStudent = async (req, res) => {
   try {
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
+    
     const student = await Student.findOneAndUpdate(
       { 
         studentId: req.params.studentId,
-        schoolId: req.body.schoolId || "SCHOOL001"
+        schoolId
       },
       { status: "Inactive" },
       { new: true }
@@ -249,6 +241,7 @@ const bulkImportStudents = async (req, res) => {
       });
     }
 
+    const schoolId = req.user?.schoolId || DEFAULT_SCHOOL_ID;
     const students = [];
     const errors = [];
 
@@ -281,8 +274,8 @@ const bulkImportStudents = async (req, res) => {
             chronicConditions: row.chronicConditions || '',
             currentMedications: row.currentMedications || '',
             status: "Active",   
-            schoolId: "SCHOOL001",
-            registeredBy: req.user?._id
+            schoolId,
+            registeredBy: req.user._id
           });
         } catch (err) {
           errors.push({ row, error: err.message });
@@ -291,6 +284,7 @@ const bulkImportStudents = async (req, res) => {
       .on('end', async () => {
         try {
           const result = await Student.insertMany(students, { ordered: false });
+          
           
           fs.unlinkSync(req.file.path);
 
@@ -326,6 +320,5 @@ module.exports = {
   getStudent,
   updateStudent,
   deleteStudent,
-  bulkImportStudents,
-  upload
+  bulkImportStudents
 };

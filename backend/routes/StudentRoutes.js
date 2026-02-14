@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const multer = require('multer');
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 const {
@@ -12,13 +13,21 @@ const {
 } = require("../controllers/StudentControllers");
 
 
+const upload = multer({ dest: 'uploads/' });
+
 router.post("/", protect, authorizeRoles("nurse", "admin"), registerStudent);
 
 
-router.post("/bulk-import", protect, authorizeRoles("admin", "nurse"), bulkImportStudents);
-
-
 router.get("/", protect, getStudents);
+
+
+router.post(
+  "/bulk-import", 
+  protect, 
+  authorizeRoles("nurse", "admin"), 
+  upload.single('file'), 
+  bulkImportStudents
+);
 
 
 router.get("/:studentId", protect, getStudent);
@@ -27,6 +36,6 @@ router.get("/:studentId", protect, getStudent);
 router.put("/:studentId", protect, authorizeRoles("nurse", "admin"), updateStudent);
 
 
-router.delete("/:studentId", protect, authorizeRoles("admin"), deleteStudent);
+router.delete("/:studentId", protect, authorizeRoles("nurse", "admin"), deleteStudent);
 
 module.exports = router;

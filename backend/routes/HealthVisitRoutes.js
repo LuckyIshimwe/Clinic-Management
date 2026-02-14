@@ -21,7 +21,7 @@ router.post("/", protect, authorizeRoles("nurse"), createHealthVisit);
 router.get("/student/:studentId", protect, getHealthVisitsByStudent);
 
 
-router.get("/all", protect, authorizeRoles("doctor", "admin"), getAllVisits);
+router.get("/all", protect, authorizeRoles("doctor", "admin","nurse"), getAllVisits);
 
 
 router.get("/lab/pending", protect, authorizeRoles("lab_technician"), getLabPendingVisits);
