@@ -117,7 +117,7 @@ export default function Login() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-800">Welcome Back</h1>
-                <p className="text-orange-600 font-medium">to Clinic Management System</p>
+                <p className="text-orange-600 font-medium">to Sync Care</p>
               </div>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed">

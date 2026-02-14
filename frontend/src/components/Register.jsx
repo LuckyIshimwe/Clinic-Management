@@ -64,7 +64,7 @@ export default function Register() {
     if (id.includes('doc') || id.includes('dr')) return 'doctor';
     if (id.includes('recep') || id.includes('rec')) return 'receptionist';
     if (id.includes('admin') || id.includes('adm')) return 'admin';
-    if (id.includes('lab')) return 'lab technician';
+    if (id.includes('lab')) return 'labtechnician';
     if (id.includes('pharm')) return 'pharmacist';
     
     return '';
