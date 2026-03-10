@@ -24,8 +24,8 @@ const userSchema = new mongoose.Schema({
   },
   role: { 
     type: String, 
-    enum: ['admin', 'doctor', 'nurse', 'labtechnician'], 
-    required: true 
+    enum: ['admin', 'doctor', 'nurse', 'labtechnician','pharmacist'],
+    required: true ,
   },
   // schoolId: {
   //   type: String,
@@ -43,8 +43,8 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Index for faster queries
+
 userSchema.index({ schoolId: 1, role: 1 });
-// userSchema.index({ staffId: 1 });
+
 
 module.exports = mongoose.model('User', userSchema);

@@ -36,7 +36,7 @@ const studentSchema = new mongoose.Schema({
     enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Unknown"],
     default: "Unknown"
   },
-  // Parent/Guardian Information
+  
   parentContact: {
     fatherName: String,
     fatherPhone: String,
@@ -46,7 +46,7 @@ const studentSchema = new mongoose.Schema({
     guardianPhone: String,
     emergencyPhone: String
   },
-  // Medical Information
+ 
   allergies: {
     type: String,
     default: ""
@@ -59,7 +59,7 @@ const studentSchema = new mongoose.Schema({
     type: String,
     default: ""
   },
-  // Status
+  
   status: {
     type: String,
     enum: ["Active", "Graduated", "Transferred", "Inactive"],
@@ -77,7 +77,6 @@ const studentSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for faster queries
 studentSchema.index({ schoolId: 1, studentId: 1 });
 studentSchema.index({ schoolId: 1, fullName: 1 });
 studentSchema.index({ schoolId: 1, grade: 1 });

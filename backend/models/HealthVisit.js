@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const vitalsSchema = new mongoose.Schema({
   temperature: {
     type: Number,
-    min: 35,
-    max: 42,
+    min: 34,
+    max: 45,
     default: null
   },
   bloodPressure: {
@@ -195,7 +195,7 @@ const healthVisitSchema = new mongoose.Schema({
   
   status: {
     type: String,
-    enum: ['pending', 'nurse_treated', 'lab_pending', 'lab_completed', 'doctor_review', 'completed', 'referred'],
+    enum: ['pending', 'nurse_treated', 'lab_pending', 'lab_completed', 'doctor_review', 'completed', 'referred', 'hospitalized'],
     default: 'pending'
   },
   
