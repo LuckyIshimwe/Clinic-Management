@@ -12,7 +12,7 @@ connectDB();
 
 const corsOptions = {
   origin: [
-    'https://synccare-theta.vercel.app',  
+    'https://synccare-eight.vercel.app',  
     'http://localhost:5173',
     'http://localhost:3000'
   ],
