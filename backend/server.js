@@ -1,21 +1,18 @@
 const express = require('express');
-const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const cors = require('cors');
 
-
-dotenv.config();
-
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 const app = express();
 
-
 connectDB();
-
 
 const corsOptions = {
   origin: [
-    'https://clinic-system-rust.vercel.app',
+    'https://synccare-theta.vercel.app',  
     'http://localhost:5173',
     'http://localhost:3000'
   ],
@@ -36,7 +33,6 @@ const MedicalHistoryRoutes = require('./routes/HealthVisitRoutes');
 const prescriptionRoutes = require('./routes/PrescriptionRoutes');
 const NotificationRoutes = require('./routes/NotificationRoutes');
 
-
 app.use('/api/user', UserRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/clinic', ClinicRoutes);
@@ -44,7 +40,6 @@ app.use('/api/lab-request', LabRequestRoutes);
 app.use('/api/health-visits', MedicalHistoryRoutes);
 app.use('/api/prescription', prescriptionRoutes);
 app.use('/api/notifications', NotificationRoutes);
-
 
 app.get('/', (req, res) => {
   res.json({ 
@@ -63,7 +58,6 @@ app.get('/', (req, res) => {
   });
 });
 
-
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ 
@@ -72,13 +66,14 @@ app.use((err, req, res, next) => {
   });
 });
 
-
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
 
-const PORT = process.env.PORT || 2000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+if (require.main === module) {
+  const PORT = process.env.PORT || 2000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
 
 module.exports = app;
