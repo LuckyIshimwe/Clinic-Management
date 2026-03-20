@@ -13,7 +13,7 @@ const {
 } = require("../controllers/StudentControllers");
 
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/", protect, authorizeRoles("nurse", "admin"), registerStudent);
 

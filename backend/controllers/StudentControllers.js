@@ -1,6 +1,6 @@
 const Student = require("../models/Student");
 const csv = require('csv-parser');
-const fs = require('fs');
+const { Readable } = require('stream');
 
 
 const DEFAULT_SCHOOL_ID = "SCHOOL001";
@@ -232,6 +232,8 @@ const deleteStudent = async (req, res) => {
   }
 };
 
+
+
 const bulkImportStudents = async (req, res) => {
   try {
     if (!req.file) {
@@ -245,7 +247,10 @@ const bulkImportStudents = async (req, res) => {
     const students = [];
     const errors = [];
 
-    fs.createReadStream(req.file.path)
+   
+    const bufferStream = Readable.from(req.file.buffer.toString('utf-8').split('\n'));
+
+    bufferStream
       .pipe(csv())
       .on('data', (row) => {
         try {
@@ -273,7 +278,7 @@ const bulkImportStudents = async (req, res) => {
             allergies: row.allergies || '',
             chronicConditions: row.chronicConditions || '',
             currentMedications: row.currentMedications || '',
-            status: "Active",   
+            status: "Active",
             schoolId,
             registeredBy: req.user._id
           });
@@ -284,9 +289,8 @@ const bulkImportStudents = async (req, res) => {
       .on('end', async () => {
         try {
           const result = await Student.insertMany(students, { ordered: false });
+
           
-          
-          fs.unlinkSync(req.file.path);
 
           res.status(201).json({
             success: true,
